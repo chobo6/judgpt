@@ -22,8 +22,15 @@ def test_lookup_articles_online_flag_has_no_effect_without_aggravation_mapping()
 
 def test_lookup_articles_covers_sexual_harassment_type():
     assert lookup_articles("성희롱") == [
-        "성폭력범죄의 처벌 등에 관한 특례법 제13조(통신매체를 이용한 음란행위)"
+        "성폭력범죄의 처벌 등에 관한 특례법 제13조(통신매체를 이용한 음란행위)",
+        "스토킹범죄의 처벌 등에 관한 법률 제18조(스토킹범죄)",
     ]
+
+
+def test_lookup_articles_sexual_remark_and_harassment_are_distinct():
+    """성적 발언(단발성)과 성희롱(거부 이후 반복)은 서로 다른 판단 기준을 가지므로
+    조문 매핑도 달라야 한다 — 성희롱만 반복성 요건이 있는 스토킹처벌법을 추가로 포함."""
+    assert lookup_articles("성적 발언") != lookup_articles("성희롱")
 
 
 def test_needs_verification_flag_is_true_until_manually_confirmed():

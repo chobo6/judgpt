@@ -35,6 +35,17 @@ def test_system_prompt_forbids_naming_specific_criminal_offense():
     assert "죄명" in system_content
 
 
+def test_system_prompt_distinguishes_sexual_remark_from_harassment():
+    """성적 발언(단발성)과 성희롱(거부 이후 반복)을 LLM이 일관되게 구분하도록
+    판단 기준이 프롬프트에 명시되어 있어야 한다 — 안 그러면 두 유형 선택이
+    사실상 임의적이 된다."""
+    messages = build_messages("아무 텍스트")
+    system_content = messages[0]["content"]
+
+    assert "단발성" in system_content
+    assert "성희롱: 상대방이 거부 의사" in system_content
+
+
 def test_system_prompt_requires_json_only_response():
     messages = build_messages("아무 텍스트")
     system_content = messages[0]["content"]
