@@ -69,3 +69,28 @@ def test_ollama_llm_call_requests_json_object_format(monkeypatch):
     assert captured_kwargs["model"] == "exaone3.5:7.8b"
     assert captured_kwargs["messages"] == [{"role": "user", "content": "질문"}]
     assert captured_kwargs["response_format"] == {"type": "json_object"}
+
+
+def test_ollama_llm_call_returns_empty_string_when_content_is_none(monkeypatch):
+    class _FakeMessage:
+        content = None
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeCompletion:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            return _FakeCompletion()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1")
+    llm._client.chat = _FakeChat()
+
+    result = llm.call([{"role": "user", "content": "질문"}])
+
+    assert result == ""

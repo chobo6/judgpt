@@ -72,3 +72,22 @@ def test_main_exits_on_empty_input(tmp_path):
 
     with pytest.raises(SystemExit, match="입력이 비어 있습니다"):
         main(["--file", str(chat_file)], llm=FakeLLM([]))
+
+
+def test_main_json_flag_prints_disclaimer_to_stderr(tmp_path, capsys):
+    chat_file = tmp_path / "chat.txt"
+    chat_file.write_text("A: 안녕", encoding="utf-8")
+    fake = FakeLLM(['{"expressions": []}'])
+
+    main(["--file", str(chat_file), "--json"], llm=fake)
+
+    captured = capsys.readouterr()
+    assert DISCLAIMER in captured.err
+    assert DISCLAIMER not in captured.out
+
+
+def test_main_exits_with_clean_message_on_missing_file(tmp_path):
+    missing_file = tmp_path / "nonexistent.txt"
+
+    with pytest.raises(SystemExit, match="파일을 찾을 수 없습니다"):
+        main(["--file", str(missing_file)], llm=FakeLLM([]))

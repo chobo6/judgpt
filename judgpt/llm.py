@@ -34,4 +34,4 @@ class OllamaLLM:
             messages=messages,
             response_format={"type": "json_object"},
         )
-        return completion.choices[0].message.content
+        return completion.choices[0].message.content or ""

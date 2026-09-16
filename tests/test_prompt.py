@@ -26,6 +26,15 @@ def test_system_prompt_forbids_citing_law_or_case():
     assert "법 조문" in system_content or "판례" in system_content
 
 
+def test_system_prompt_forbids_naming_specific_criminal_offense():
+    """법 조문/판례 인용 금지만으로는 구체적 죄명 언급을 막지 못한다 (예: "협박죄").
+    type 필드의 분류명만 쓰도록 별도로 금지해야 한다."""
+    messages = build_messages("아무 텍스트")
+    system_content = messages[0]["content"]
+
+    assert "죄명" in system_content
+
+
 def test_system_prompt_requires_json_only_response():
     messages = build_messages("아무 텍스트")
     system_content = messages[0]["content"]
