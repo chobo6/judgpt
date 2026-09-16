@@ -28,3 +28,38 @@ def test_cosine_similarity_opposite_vectors_is_negative_one():
 
 def test_cosine_similarity_handles_zero_vector_without_crashing():
     assert cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
+
+
+from judgpt.embedder import OllamaEmbedder
+
+
+def test_ollama_embedder_targets_configured_base_url():
+    embedder = OllamaEmbedder(model="nomic-embed-text", base_url="http://localhost:11434/v1")
+
+    assert embedder.model == "nomic-embed-text"
+    assert "11434" in str(embedder._client.base_url)
+    assert embedder._client.api_key == "ollama"
+
+
+def test_ollama_embedder_embed_requests_correct_model_and_input():
+    captured_kwargs = {}
+
+    class _FakeEmbeddingData:
+        embedding = [0.1, 0.2, 0.3]
+
+    class _FakeEmbeddingResponse:
+        data = [_FakeEmbeddingData()]
+
+    class _FakeEmbeddings:
+        def create(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return _FakeEmbeddingResponse()
+
+    embedder = OllamaEmbedder(model="nomic-embed-text", base_url="http://localhost:11434/v1")
+    embedder._client.embeddings = _FakeEmbeddings()
+
+    result = embedder.embed("텍스트")
+
+    assert result == [0.1, 0.2, 0.3]
+    assert captured_kwargs["model"] == "nomic-embed-text"
+    assert captured_kwargs["input"] == "텍스트"
