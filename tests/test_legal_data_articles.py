@@ -20,6 +20,12 @@ def test_lookup_articles_online_flag_has_no_effect_without_aggravation_mapping()
     assert lookup_articles("모욕", is_online=True) == ["형법 제311조(모욕)"]
 
 
+def test_lookup_articles_covers_sexual_harassment_type():
+    assert lookup_articles("성희롱") == [
+        "성폭력범죄의 처벌 등에 관한 특례법 제13조(통신매체를 이용한 음란행위)"
+    ]
+
+
 def test_needs_verification_flag_is_true_until_manually_confirmed():
     """이 플래그가 True인 동안은 출력에 재검증 필요 경고가 붙는다(Task 6 참고).
     법제처 API(Task 8)로 실제 조문을 확인한 뒤에만 False로 바꿀 것 — 이 테스트는

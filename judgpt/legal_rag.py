@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from judgpt.embedder import Embedder, cosine_similarity
-from judgpt.legal_data.articles import lookup_articles
+from judgpt.legal_data.articles import NEEDS_VERIFICATION, lookup_articles
 from judgpt.legal_data.cases import CaseEntry, load_cases
 from judgpt.schema import AnalysisResult, Expression
 
@@ -15,6 +15,7 @@ class EnrichedExpression(Expression):
 
 class EnrichedResult(BaseModel):
     expressions: list[EnrichedExpression]
+    needs_verification: bool = NEEDS_VERIFICATION
 
 
 def enrich(
@@ -38,7 +39,7 @@ def enrich(
         enriched_expressions.append(
             EnrichedExpression(**expr.model_dump(), applicable_laws=laws, related_cases=related)
         )
-    return EnrichedResult(expressions=enriched_expressions)
+    return EnrichedResult(expressions=enriched_expressions, needs_verification=NEEDS_VERIFICATION)
 
 
 def _find_related_cases(
@@ -59,4 +60,7 @@ def _find_related_cases(
         if score >= SIMILARITY_THRESHOLD:
             scored.append((score, case))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [f"{case.case_id} ({case.court}): {case.summary}" for _, case in scored[:2]]
+    return [
+        f"{case.case_id} ({case.court}): {case.summary} — {case.source_url}"
+        for _, case in scored[:2]
+    ]

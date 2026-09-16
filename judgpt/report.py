@@ -1,3 +1,5 @@
+from judgpt.legal_data.articles import NEEDS_VERIFICATION
+from judgpt.legal_rag import EnrichedResult
 from judgpt.schema import AnalysisResult
 
 DISCLAIMER = (
@@ -28,9 +30,6 @@ def format_report(result: AnalysisResult) -> str:
     lines.append(DISCLAIMER)
     return "\n".join(lines)
 
-
-from judgpt.legal_data.articles import NEEDS_VERIFICATION
-from judgpt.legal_rag import EnrichedResult
 
 VERIFICATION_NOTE = "[조번호 재검증 필요 — 법제처 API로 아직 확인 전]"
 

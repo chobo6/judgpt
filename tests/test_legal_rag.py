@@ -69,6 +69,15 @@ def test_enrich_ignores_cases_of_different_type():
     assert enriched.expressions[0].related_cases == []
 
 
+def test_enrich_result_carries_needs_verification_flag():
+    result = AnalysisResult(expressions=[])
+    embedder = FakeEmbedder({})
+
+    enriched = enrich(result, embedder, cases=[])
+
+    assert enriched.needs_verification is True
+
+
 def test_enrich_falls_back_to_text_when_context_is_none():
     case = _case("테스트사건", "모욕", summary="요약")
     result = AnalysisResult(
