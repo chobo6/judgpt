@@ -6,7 +6,7 @@
 
 - 설치: `pip install -e ".[dev]"`
 - 전체 테스트(네트워크 불필요, Ollama 없어도 통과): `pytest` (기본 `addopts`가 `integration` 마커를 제외한다)
-- 통합 테스트만(단위 테스트 33개는 제외되고, 로컬에 Ollama가 떠 있고 `ollama pull exaone3.5:7.8b`로 모델을 받아둔 경우에만 통과하는 2개만 실행): `pytest -m integration`
+- 통합 테스트만(단위 테스트는 제외되고, 로컬에 Ollama가 떠 있고 `ollama pull exaone3.5:7.8b`로 모델을 받아둔 경우에만 통과하는 2개만 실행): `pytest -m integration`
 - CLI 실행: `python -m judgpt.analyze --file chat.txt` 또는 `cat chat.txt | python -m judgpt.analyze`
 - 원본 JSON 출력: `python -m judgpt.analyze --file chat.txt --json`
 - 환경변수: `JUDGPT_MODEL`(기본 `exaone3.5:7.8b`), `OLLAMA_BASE_URL`(기본 `http://localhost:11434/v1`)
@@ -28,6 +28,10 @@
 ## 실행 전 준비
 
 Ollama가 로컬에 설치되어 있고 `ollama pull exaone3.5:7.8b`로 모델을 받아둬야 `python -m judgpt.analyze`가 실제로 동작한다. 없으면 연결 오류가 난다 — 단, 단위 테스트(`pytest`, 통합 마커 제외)는 전부 `FakeLLM`을 쓰므로 Ollama 설치 여부와 무관하게 통과한다.
+
+## 트러블슈팅
+
+실제로 겪은 버그·장애와 근본 원인은 `docs/TROUBLESHOOTING.md`에 기록한다 — 새로 작업하다 트러블을 만나면 그때그때 이 문서에 추가할 것 (repoview 프로젝트와 동일한 컨벤션).
 
 ## 범위 밖 (아직 없음)
 
