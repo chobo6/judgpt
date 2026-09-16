@@ -85,10 +85,21 @@ def test_format_enriched_report_shows_no_basis_when_empty():
     assert "관련 판례: 판단 근거 없음" in report
 
 
-def test_format_enriched_report_includes_verification_note_while_flag_true():
-    assert NEEDS_VERIFICATION is True  # 이 테스트는 플래그가 True인 동안만 유효
+def test_format_enriched_report_includes_verification_note_when_flag_true(monkeypatch):
+    monkeypatch.setattr("judgpt.report.NEEDS_VERIFICATION", True)
     result = EnrichedResult(expressions=[
         EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
     ])
     report = format_enriched_report(result)
     assert VERIFICATION_NOTE in report
+
+
+def test_format_enriched_report_omits_verification_note_when_flag_false():
+    """실제 NEEDS_VERIFICATION 값(2026-09-16 법제처 API로 조문 확인 완료, False)을
+    그대로 쓴다 — 재검증 경고가 더 이상 붙지 않아야 한다."""
+    assert NEEDS_VERIFICATION is False
+    result = EnrichedResult(expressions=[
+        EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
+    ])
+    report = format_enriched_report(result)
+    assert VERIFICATION_NOTE not in report

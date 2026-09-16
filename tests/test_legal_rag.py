@@ -27,7 +27,7 @@ def test_enrich_online_flag_adds_aggravation_articles():
     enriched = enrich(result, embedder, is_online=True, cases=[])
 
     assert (
-        "성폭력범죄의 처벌 등에 관한 특례법 제14조의3(촬영물 등을 이용한 협박·강요)"
+        "성폭력범죄의 처벌 등에 관한 특례법 제14조의3(촬영물과 편집물 등을 이용한 협박ㆍ강요)"
         in enriched.expressions[0].applicable_laws
     )
 
@@ -70,6 +70,18 @@ def test_enrich_ignores_cases_of_different_type():
 
 
 def test_enrich_result_carries_needs_verification_flag():
+    """실제 NEEDS_VERIFICATION 값(2026-09-16 법제처 API로 조문 확인 완료, False)을
+    그대로 실어 나르는지 확인한다."""
+    result = AnalysisResult(expressions=[])
+    embedder = FakeEmbedder({})
+
+    enriched = enrich(result, embedder, cases=[])
+
+    assert enriched.needs_verification is False
+
+
+def test_enrich_result_needs_verification_reflects_flag_when_true(monkeypatch):
+    monkeypatch.setattr("judgpt.legal_rag.NEEDS_VERIFICATION", True)
     result = AnalysisResult(expressions=[])
     embedder = FakeEmbedder({})
 

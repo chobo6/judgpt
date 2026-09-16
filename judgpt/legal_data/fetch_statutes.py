@@ -10,6 +10,7 @@ LAW_NAMES = [
     "형법",
     "정보통신망 이용촉진 및 정보보호 등에 관한 법률",
     "성폭력범죄의 처벌 등에 관한 특례법",
+    "스토킹범죄의 처벌 등에 관한 법률",
 ]
 
 
@@ -35,6 +36,9 @@ def search_law(law_name: str, oc: str) -> dict:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
     try:
         oc = get_oc()
     except MissingOCError as exc:
