@@ -63,3 +63,11 @@
 **원인**: `pip install -e ".[dev]"`를 워크트리(`.claude/worktrees/judgpt-mvp`) 안에서 실행했었는데, editable install은 그 소스 경로로 링크를 건다. 워크트리를 지우고 나니 그 경로가 사라져 `judgpt` 패키지 자체를 못 찾게 됐다.
 
 **해결**: 메인 저장소 루트에서 `pip install -e ".[dev]"`를 다시 실행 — editable install 경로가 메인 저장소로 갱신됨. **워크트리에서 병합 작업을 마치고 메인 저장소로 돌아올 때마다, 워크트리 안에서 `pip install -e`를 했었다면 메인 저장소에서 다시 설치해야 한다는 점을 기억할 것.**
+
+### #9 `--json` 모드의 stderr 고지 문구가 cp949로 잘못 인코딩됨 (실제 Ollama로 수동 검증하다 발견)
+
+**증상**: 실제 Ollama 설치 후 `python -m judgpt.analyze --file ... --json 2>err.txt`로 수동 검증하던 중, `err.txt`의 바이트가 UTF-8로 디코딩되지 않았다(`UnicodeDecodeError`). 유닛 테스트(`capsys` 기반)는 이 문제를 못 잡았다.
+
+**원인**: #4에서 `sys.stdout`만 `reconfigure(encoding="utf-8")`했고, `--json` 모드의 `DISCLAIMER`를 출력하는 `sys.stderr`는 빠뜨렸다. 크래시는 안 났다 — 이 문구에 쓰인 한글 글자들이 cp949로도 인코딩 가능한 범위라 조용히 잘못된 인코딩(cp949)으로 써졌을 뿐이다(`⚠️` 이모지처럼 cp949 밖의 문자였다면 #4와 동일하게 크래시했을 것).
+
+**해결**: `main()` 시작부에 `sys.stderr.reconfigure(encoding="utf-8")`을 `sys.stdout` 옆에 추가 (commit 예정). **교훈: 콘솔 인코딩 문제는 크래시가 안 나도 잘못된 바이트가 조용히 써질 수 있으므로, stdout/stderr 둘 다 프로그램이 쓰는 모든 스트림에 동일하게 적용해야 한다 — 하나만 고치고 넘어가면 재발한다.**

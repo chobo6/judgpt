@@ -23,6 +23,7 @@ def run(chat_text: str, llm: LLM, as_json: bool) -> str:
 
 def main(argv: list[str] | None = None, llm: LLM | None = None) -> None:
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(
         description="채팅 로그에서 유해 표현을 탐지한다", prog="python -m judgpt.analyze"
