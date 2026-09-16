@@ -62,7 +62,7 @@ def test_enrich_ignores_cases_of_different_type():
     result = AnalysisResult(
         expressions=[Expression(text="예시", type="모욕", risk="높음", context="맥락")]
     )
-    embedder = FakeEmbedder({"협박 요약": [1.0, 0.0], "맥락": [1.0, 0.0]})
+    embedder = FakeEmbedder({"협박 요약": [1.0, 0.0]})
 
     enriched = enrich(result, embedder, cases=[case])
 
