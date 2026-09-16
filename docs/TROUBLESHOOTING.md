@@ -70,4 +70,4 @@
 
 **원인**: #4에서 `sys.stdout`만 `reconfigure(encoding="utf-8")`했고, `--json` 모드의 `DISCLAIMER`를 출력하는 `sys.stderr`는 빠뜨렸다. 크래시는 안 났다 — 이 문구에 쓰인 한글 글자들이 cp949로도 인코딩 가능한 범위라 조용히 잘못된 인코딩(cp949)으로 써졌을 뿐이다(`⚠️` 이모지처럼 cp949 밖의 문자였다면 #4와 동일하게 크래시했을 것).
 
-**해결**: `main()` 시작부에 `sys.stderr.reconfigure(encoding="utf-8")`을 `sys.stdout` 옆에 추가 (commit 예정). **교훈: 콘솔 인코딩 문제는 크래시가 안 나도 잘못된 바이트가 조용히 써질 수 있으므로, stdout/stderr 둘 다 프로그램이 쓰는 모든 스트림에 동일하게 적용해야 한다 — 하나만 고치고 넘어가면 재발한다.**
+**해결**: `main()` 시작부에 `sys.stderr.reconfigure(encoding="utf-8")`을 `sys.stdout` 옆에 추가 (commit `3612e25`). **교훈: 콘솔 인코딩 문제는 크래시가 안 나도 잘못된 바이트가 조용히 써질 수 있으므로, stdout/stderr 둘 다 프로그램이 쓰는 모든 스트림에 동일하게 적용해야 한다 — 하나만 고치고 넘어가면 재발한다.**
