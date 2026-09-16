@@ -20,8 +20,8 @@ def test_ollama_base_url_defaults_to_localhost(monkeypatch):
 def test_model_env_var_overrides_default(monkeypatch):
     monkeypatch.setenv("JUDGPT_MODEL", "qwen2.5:7b")
     importlib.reload(config)
-
-    assert config.MODEL == "qwen2.5:7b"
-
-    monkeypatch.delenv("JUDGPT_MODEL", raising=False)
-    importlib.reload(config)
+    try:
+        assert config.MODEL == "qwen2.5:7b"
+    finally:
+        monkeypatch.delenv("JUDGPT_MODEL", raising=False)
+        importlib.reload(config)

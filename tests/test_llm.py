@@ -94,3 +94,22 @@ def test_ollama_llm_call_returns_empty_string_when_content_is_none(monkeypatch):
     result = llm.call([{"role": "user", "content": "질문"}])
 
     assert result == ""
+
+
+def test_ollama_llm_call_returns_empty_string_when_choices_is_empty(monkeypatch):
+    class _FakeCompletion:
+        choices = []
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            return _FakeCompletion()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1")
+    llm._client.chat = _FakeChat()
+
+    result = llm.call([{"role": "user", "content": "질문"}])
+
+    assert result == ""

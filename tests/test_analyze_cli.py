@@ -91,3 +91,26 @@ def test_main_exits_with_clean_message_on_missing_file(tmp_path):
 
     with pytest.raises(SystemExit, match="파일을 찾을 수 없습니다"):
         main(["--file", str(missing_file)], llm=FakeLLM([]))
+
+
+def test_main_treats_empty_file_arg_as_missing_file_not_stdin_fallback():
+    with pytest.raises(SystemExit, match="파일을 찾을 수 없습니다"):
+        main(["--file", ""], llm=FakeLLM([]))
+
+
+def test_main_reconfigures_stdin_encoding_when_supported(monkeypatch, capsys):
+    calls = []
+
+    class _FakeStdin:
+        def reconfigure(self, encoding):
+            calls.append(encoding)
+
+        def read(self):
+            return "A: 안녕"
+
+    monkeypatch.setattr("sys.stdin", _FakeStdin())
+    fake = FakeLLM(['{"expressions": []}'])
+
+    main([], llm=fake)
+
+    assert calls == ["utf-8-sig"]

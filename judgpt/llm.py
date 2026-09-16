@@ -1,5 +1,7 @@
 from typing import Protocol
 
+from openai import OpenAI
+
 
 class LLM(Protocol):
     def call(self, messages: list[dict]) -> str: ...
@@ -23,8 +25,6 @@ class OllamaLLM:
     """Ollama의 OpenAI 호환 엔드포인트(/v1/chat/completions)를 호출한다."""
 
     def __init__(self, model: str, base_url: str) -> None:
-        from openai import OpenAI
-
         self.model = model
         self._client = OpenAI(base_url=base_url, api_key="ollama")
 
@@ -34,4 +34,6 @@ class OllamaLLM:
             messages=messages,
             response_format={"type": "json_object"},
         )
+        if not completion.choices:
+            return ""
         return completion.choices[0].message.content or ""

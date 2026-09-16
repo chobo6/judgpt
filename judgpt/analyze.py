@@ -33,13 +33,15 @@ def main(argv: list[str] | None = None, llm: LLM | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    if args.file:
+    if args.file is not None:
         try:
             with open(args.file, encoding="utf-8-sig") as f:
                 chat_text = f.read()
         except FileNotFoundError as exc:
             raise SystemExit(f"파일을 찾을 수 없습니다: {args.file}") from exc
     else:
+        if hasattr(sys.stdin, "reconfigure"):
+            sys.stdin.reconfigure(encoding="utf-8-sig")
         chat_text = sys.stdin.read()
 
     if not chat_text.strip():
