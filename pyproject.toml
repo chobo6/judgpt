@@ -16,6 +16,7 @@ dev = ["pytest>=8.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-m 'not integration'"
 markers = [
     "integration: 로컬에 실제 Ollama가 떠 있어야 통과하는 테스트 (기본 실행에서 제외)",
 ]
