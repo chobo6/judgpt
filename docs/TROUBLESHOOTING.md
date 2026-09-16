@@ -71,3 +71,21 @@
 **원인**: #4에서 `sys.stdout`만 `reconfigure(encoding="utf-8")`했고, `--json` 모드의 `DISCLAIMER`를 출력하는 `sys.stderr`는 빠뜨렸다. 크래시는 안 났다 — 이 문구에 쓰인 한글 글자들이 cp949로도 인코딩 가능한 범위라 조용히 잘못된 인코딩(cp949)으로 써졌을 뿐이다(`⚠️` 이모지처럼 cp949 밖의 문자였다면 #4와 동일하게 크래시했을 것).
 
 **해결**: `main()` 시작부에 `sys.stderr.reconfigure(encoding="utf-8")`을 `sys.stdout` 옆에 추가 (commit `3612e25`). **교훈: 콘솔 인코딩 문제는 크래시가 안 나도 잘못된 바이트가 조용히 써질 수 있으므로, stdout/stderr 둘 다 프로그램이 쓰는 모든 스트림에 동일하게 적용해야 한다 — 하나만 고치고 넘어가면 재발한다.**
+
+## 법률 RAG 구현 (Task 1-8, 최종 리뷰, PR #2 후속 개선)
+
+### #10 `fetch_statutes.py`도 stdout/stderr UTF-8 reconfigure가 빠져있었음 (#9와 동일 패턴, 재발)
+
+**증상**: 실제 법제처 OC 키를 발급받아 `python -m judgpt.legal_data.fetch_statutes`를 처음 실행하니, 출력을 파일로 리다이렉트했을 때 `UnicodeDecodeError`가 났다(이번엔 #9처럼 "잘못된 인코딩이지만 크래시는 안 남"이 아니라, cp949로 인코딩 불가능한 바이트가 섞여 진짜 깨진 데이터가 써졌다).
+
+**원인**: `analyze.py`의 `main()`에는 #4/#9로 `sys.stdout`/`sys.stderr` UTF-8 reconfigure가 다 들어갔지만, 같은 문제를 가진 별도 진입점인 `fetch_statutes.py`의 `main()`에는 애초에 이 처리 자체가 없었다 — CLI 진입점이 여러 개가 되면 한 곳에서 배운 교훈이 자동으로 다른 곳에 전파되지 않는다.
+
+**해결**: `fetch_statutes.py`의 `main()` 시작부에도 동일하게 `sys.stdout.reconfigure(encoding="utf-8")` + `sys.stderr.reconfigure(encoding="utf-8")` 추가 (commit `8cc4d28`). **교훈: `if __name__ == "__main__":`으로 실행되는 진입점이 프로젝트에 여러 개면, 인코딩 reconfigure 같은 "진입점 공통 처리"를 체크리스트로 만들어 새 진입점을 추가할 때마다 확인할 것.**
+
+### #11 법제처 API의 `lawSearch`(법령 검색)와 `lawService`(조문 원문)는 별개이고, `type=HTML`은 사람이 브라우저로 볼 iframe 래퍼만 반환함
+
+**증상**: `fetch_statutes.py`의 `search_law()`(`target=law`, `lawSearch.do`)만으로는 "법이 존재한다"는 것만 확인되고, 실제 조번호·조문 제목(예: 형법 제311조가 정말 "모욕"이 맞는지)은 검증되지 않았다. 수동으로 `lawService.do?...&type=HTML`을 호출해봤더니 조문 내용이 아니라 `<iframe src="...lsInfoP.do...">` 하나만 든 빈 뷰어 페이지가 돌아왔다.
+
+**원인**: `type=HTML`은 법제처 웹사이트에 사람이 붙여넣어 보는 뷰어 페이지용이다. 조문 단위 구조화 데이터가 필요하면 `type=XML`로 요청해야 `조문단위`/`조문번호`/`조문제목`/`조문내용` 태그가 담긴 실제 본문이 온다.
+
+**해결**: 이 프로젝트의 `fetch_statutes.py`는 (Task 8 설계대로) `lawSearch`까지만 하고 나머지는 사람이 결과를 보고 판단하는 걸로 남겨뒀다 — 실제 조문 대조 검증은 이번에 `type=XML`로 수동 진행해 4개 법(형법/정보통신망법/성폭력처벌특례법/스토킹처벌법)의 인용 조번호를 전부 확인했다(`NEEDS_VERIFICATION = False`로 전환, commit `8cc4d28`). **`fetch_statutes.py` 자체를 조문 단위까지 자동 검증하도록 확장하고 싶다면, `type=JSON`이 아니라 `type=XML`을 쓰고 `조문단위` 태그를 순회해야 한다는 점을 기억할 것.**
