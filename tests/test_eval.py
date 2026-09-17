@@ -82,3 +82,30 @@ def test_score_case_does_not_double_match_same_expected_twice():
     assert len(score.matched) == 1
     assert len(score.false_positives) == 1
     assert score.false_negatives == []
+
+
+from judgpt.eval import run_eval
+from judgpt.eval_data.golden import GoldenCase, GoldenExpectation
+from judgpt.llm import FakeLLM
+
+
+def test_run_eval_scores_each_case_against_llm_output():
+    cases = [
+        GoldenCase(
+            chat_text="A: 너는 쓰레기야",
+            expected=[GoldenExpectation(text="너는 쓰레기야", type="모욕")],
+        ),
+        GoldenCase(chat_text="A: 안녕", expected=[]),
+    ]
+    llm = FakeLLM([
+        '{"expressions": [{"text": "너는 쓰레기야", "type": "모욕", "risk": "높음"}]}',
+        '{"expressions": []}',
+    ])
+
+    report = run_eval(cases, llm)
+
+    assert len(report.cases) == 2
+    assert report.cases[0].chat_text == "A: 너는 쓰레기야"
+    assert len(report.cases[0].score.matched) == 1
+    assert report.cases[1].score.matched == []
+    assert report.cases[1].score.false_positives == []

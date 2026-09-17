@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 
-from judgpt.eval_data.golden import GoldenExpectation
+from judgpt.analyzer import analyze
+from judgpt.eval_data.golden import GoldenCase, GoldenExpectation
+from judgpt.llm import LLM
 from judgpt.schema import Expression
 
 
@@ -31,3 +33,21 @@ def score_case(predicted: list[Expression], expected: list[GoldenExpectation]) -
             remaining_expected.pop(match_index)
 
     return CaseScore(matched=matched, false_negatives=remaining_expected, false_positives=false_positives)
+
+
+class CaseResult(BaseModel):
+    chat_text: str
+    score: CaseScore
+
+
+class EvalReport(BaseModel):
+    cases: list[CaseResult]
+
+
+def run_eval(cases: list[GoldenCase], llm: LLM) -> EvalReport:
+    results = []
+    for case in cases:
+        analysis = analyze(case.chat_text, llm)
+        score = score_case(analysis.expressions, case.expected)
+        results.append(CaseResult(chat_text=case.chat_text, score=score))
+    return EvalReport(cases=results)
