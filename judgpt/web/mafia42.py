@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 REPLAY_URL_PATTERN = re.compile(r"^https://mafia42\.com/history/([a-z]{2})/([0-9a-f]{32})/?$")
 CHAT_API_URL = "https://o2zj8uijbj.execute-api.ap-northeast-2.amazonaws.com/GetMafiaChat"
 
+_client = httpx.Client(timeout=10.0)
+
 
 class ReplayImportError(Exception):
     """URL이 패턴에 안 맞거나, fetch/파싱에 실패하거나, 채팅이 0건일 때.
@@ -41,11 +43,10 @@ def fetch_replay_chat_text(url: str) -> str:
 
     lang, replay_id = match.groups()
     try:
-        response = httpx.get(
+        response = _client.get(
             CHAT_API_URL,
             params={"id": replay_id, "lang": lang},
             headers={"Referer": "https://mafia42.com/"},
-            timeout=10.0,
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:

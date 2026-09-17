@@ -59,10 +59,18 @@ export default function App() {
       <h1>judgpt</h1>
 
       <div>
-        <button type="button" onClick={() => setTab("text")} disabled={tab === "text"}>
+        <button
+          type="button"
+          onClick={() => setTab("text")}
+          disabled={tab === "text" || importing}
+        >
           텍스트 붙여넣기
         </button>
-        <button type="button" onClick={() => setTab("link")} disabled={tab === "link"}>
+        <button
+          type="button"
+          onClick={() => setTab("link")}
+          disabled={tab === "link" || importing}
+        >
           리플레이 링크
         </button>
       </div>

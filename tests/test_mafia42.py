@@ -73,13 +73,13 @@ def test_fetch_replay_chat_text_returns_joined_lines(monkeypatch):
 
     captured = {}
 
-    def _fake_get(url, params, headers, timeout):
+    def _fake_get(url, params, headers):
         captured["url"] = url
         captured["params"] = params
         captured["headers"] = headers
         return _FakeResponse()
 
-    monkeypatch.setattr("judgpt.web.mafia42.httpx.get", _fake_get)
+    monkeypatch.setattr("judgpt.web.mafia42._client.get", _fake_get)
 
     result = fetch_replay_chat_text(
         "https://mafia42.com/history/kr/743e94a801dff38ddf6c159c130d5777"
@@ -105,10 +105,10 @@ def test_fetch_replay_chat_text_raises_502_on_http_error(monkeypatch):
 
     from judgpt.web.mafia42 import ReplayImportError, fetch_replay_chat_text
 
-    def _fake_get(url, params, headers, timeout):
+    def _fake_get(url, params, headers):
         raise httpx.ConnectError("boom")
 
-    monkeypatch.setattr("judgpt.web.mafia42.httpx.get", _fake_get)
+    monkeypatch.setattr("judgpt.web.mafia42._client.get", _fake_get)
 
     with pytest.raises(ReplayImportError) as exc_info:
         fetch_replay_chat_text(
@@ -127,7 +127,7 @@ def test_fetch_replay_chat_text_raises_502_when_no_chat_lines_found(monkeypatch)
         def raise_for_status(self):
             pass
 
-    monkeypatch.setattr("judgpt.web.mafia42.httpx.get", lambda *a, **k: _FakeEmptyResponse())
+    monkeypatch.setattr("judgpt.web.mafia42._client.get", lambda *a, **k: _FakeEmptyResponse())
 
     with pytest.raises(ReplayImportError) as exc_info:
         fetch_replay_chat_text(
