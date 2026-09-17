@@ -185,3 +185,24 @@ def test_format_eval_report_includes_risk_distribution():
     output = format_eval_report(report)
 
     assert "높음 1 / 중간 0 / 낮음 0" in output
+
+
+def test_format_eval_report_shows_no_basis_for_overall_metrics():
+    report = EvalReport(cases=[
+        CaseResult(
+            chat_text="A: 안녕",
+            score=CaseScore(
+                matched=[],
+                false_negatives=[],
+                false_positives=[],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert "해당 없음" in output
+    # Check that "해당 없음" appears in the overall metrics line (Precision/Recall both 0.00)
+    lines = output.split('\n')
+    overall_line = [l for l in lines if l.startswith('전체:')][0]
+    assert "해당 없음" in overall_line

@@ -62,9 +62,11 @@ def format_eval_report(report: EvalReport) -> str:
     lines = [f"[Eval 결과] {len(report.cases)}개 케이스", ""]
 
     overall_p, overall_r, overall_f1 = _prf1(total_tp, total_fp, total_fn)
+    overall_p_note = " (해당 없음)" if total_tp + total_fp == 0 else ""
+    overall_r_note = " (해당 없음)" if total_tp + total_fn == 0 else ""
     lines.append(
-        f"전체: Precision {overall_p:.2f} ({total_tp}/{total_tp + total_fp})  "
-        f"Recall {overall_r:.2f} ({total_tp}/{total_tp + total_fn})  F1 {overall_f1:.2f}"
+        f"전체: Precision {overall_p:.2f} ({total_tp}/{total_tp + total_fp}){overall_p_note}  "
+        f"Recall {overall_r:.2f} ({total_tp}/{total_tp + total_fn}){overall_r_note}  F1 {overall_f1:.2f}"
     )
     lines.append("")
 
