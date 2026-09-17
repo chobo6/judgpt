@@ -28,7 +28,7 @@
 - `report.py` — `AnalysisResult`를 사람이 읽는 리포트 문자열로 변환. `DISCLAIMER`(참고용 정보 고지)는 항상 고정 문구로 붙인다 — 모델 출력에 맡기지 않는다. 사람이 읽는 리포트에는 본문 끝에 포함되고, `--json` 모드에서는 `main()`이 별도로 stderr에 출력한다(둘 다 항상 표시됨). `--legal` 결과(`EnrichedResult`)는 `format_enriched_report()`가 별도로 사람이 읽는 리포트로 변환하며, `NEEDS_VERIFICATION`이 참인 동안은 조문 뒤에 재검증 필요 경고를 붙인다.
 - `analyze.py` — CLI 진입점. `run()`은 순수 함수(테스트하기 쉬움, I/O 없음)로 그대로 유지되고, `main()`이 argparse + 파일/stdin 읽기 + `OllamaLLM` 생성 + 출력(및 `--json`일 때 stderr로의 `DISCLAIMER` 출력) 등 모든 I/O를 담당한다. `main(argv, llm=...)`처럼 `llm`을 주입할 수 있어 테스트가 실제 Ollama 없이 전체 CLI 흐름을 검증한다. `run()`/`main()` 둘 다 `embedder` 파라미터를 받는다 — `--legal`일 때만 쓰이고, `main()`은 `embedder`가 주어지지 않으면 `OllamaEmbedder`를 직접 만들어 주입한다.
 
-모델은 기본 `exaone3.5:7.8b`(한국어 특화)이고 `qwen2.5:7b`로 교체해볼 수 있다 — 둘 중 어느 쪽이 이 작업에 더 나은지는 아직 실측 전이다(`docs/02-architecture.md` §10).
+모델은 기본 `exaone3.5:7.8b`(한국어 특화)이고 `qwen2.5:7b`로 교체해볼 수 있다 — eval 하네스로 실측한 결과 전체 F1은 비슷하지만 유형별 강점이 갈린다(exaone은 명예훼손·협박, qwen은 욕설·성적 발언; qwen은 협박에서 피해자 발언을 가해 발언으로 오분류하는 문제도 있음). 협박 탐지 우위를 근거로 exaone을 기본값으로 유지 — 자세한 수치는 `docs/TROUBLESHOOTING.md` #13.
 
 ## 실행 전 준비
 

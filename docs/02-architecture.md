@@ -90,5 +90,5 @@ class AnalysisResult(BaseModel):
 
 ## 10. 미해결 질문
 
-1. `exaone3.5:7.8b` vs `qwen2.5:7b` 실제 품질 비교 — 지금은 실측 없이 추론 근거로만 기본값을 정했다. 구현 후 `tests/fixtures`의 예시로 수동 비교해 기본값을 재확인한다.
+1. ~~`exaone3.5:7.8b` vs `qwen2.5:7b` 실제 품질 비교~~ — **해결(2026-09-17)**: eval 하네스(`python -m judgpt.eval`)로 골든셋 15건·`temperature=0` 기준 실측 완료. 전체 F1은 우연히 동일(0.73)하지만 유형별 강점이 갈린다(exaone은 명예훼손·협박, qwen은 욕설·성적 발언) — 자세한 수치와 qwen의 협박 오탐 이슈는 `docs/TROUBLESHOOTING.md` #13 참고. 기본값은 협박 탐지 우위를 근거로 `exaone3.5:7.8b` 유지.
 2. Ollama 미설치 상태에서의 에러 메시지(연결 실패)를 얼마나 친절하게 안내할지 — 이 프로젝트의 유일한 사용자가 개발자 본인이므로 MVP에서는 최소한으로("Ollama가 :11434에서 응답하지 않습니다" 수준)만 처리한다.
