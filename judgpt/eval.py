@@ -1,8 +1,13 @@
+import argparse
+import json
+import sys
+
 from pydantic import BaseModel
 
+from judgpt import config
 from judgpt.analyzer import analyze
-from judgpt.eval_data.golden import GoldenCase, GoldenExpectation
-from judgpt.llm import LLM
+from judgpt.eval_data.golden import GoldenCase, GoldenExpectation, load_golden_cases
+from judgpt.llm import LLM, OllamaLLM
 from judgpt.schema import Expression
 
 
@@ -128,3 +133,36 @@ def _all_types(scores: list["CaseScore"]) -> set[str]:
         types.update(m.type for m in s.false_positives)
         types.update(e.type for e in s.false_negatives)
     return types
+
+
+def main(
+    argv: list[str] | None = None,
+    llm: LLM | None = None,
+    cases: list[GoldenCase] | None = None,
+) -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser(
+        description="골든 데이터셋으로 유해 표현 탐지 정확도를 측정한다",
+        prog="python -m judgpt.eval",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="사람이 읽는 리포트 대신 원본 JSON을 출력한다"
+    )
+    args = parser.parse_args(argv)
+
+    if llm is None:
+        llm = OllamaLLM(model=config.MODEL, base_url=config.OLLAMA_BASE_URL)
+    if cases is None:
+        cases = load_golden_cases()
+
+    report = run_eval(cases, llm)
+
+    if args.json:
+        print(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
+    else:
+        print(format_eval_report(report))
+
+
+if __name__ == "__main__":
+    main()

@@ -206,3 +206,44 @@ def test_format_eval_report_shows_no_basis_for_overall_metrics():
     lines = output.split('\n')
     overall_line = [l for l in lines if l.startswith('전체:')][0]
     assert "해당 없음" in overall_line
+
+
+import json
+
+from judgpt.eval import main
+from judgpt.eval_data.golden import GoldenCase
+from judgpt.llm import FakeLLM
+
+
+def test_main_prints_human_report_by_default(capsys):
+    llm = FakeLLM(['{"expressions": []}'])
+    cases = [GoldenCase(chat_text="A: 안녕", expected=[])]
+
+    main([], llm=llm, cases=cases)
+
+    captured = capsys.readouterr()
+    assert "1개 케이스" in captured.out
+
+
+def test_main_json_flag_outputs_valid_json(capsys):
+    llm = FakeLLM(['{"expressions": []}'])
+    cases = [GoldenCase(chat_text="A: 안녕", expected=[])]
+
+    main(["--json"], llm=llm, cases=cases)
+
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert data["cases"][0]["chat_text"] == "A: 안녕"
+
+
+def test_main_without_cases_loads_default_golden_dataset(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "judgpt.eval.load_golden_cases",
+        lambda: calls.append("called") or [],
+    )
+    llm = FakeLLM([])
+
+    main([], llm=llm)
+
+    assert calls == ["called"]
