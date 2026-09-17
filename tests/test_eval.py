@@ -84,9 +84,46 @@ def test_score_case_does_not_double_match_same_expected_twice():
     assert score.false_negatives == []
 
 
+def test_score_case_finds_optimal_matching_when_greedy_order_would_fail():
+    """predicted[0]("시발 개빡치네")은 expected[0]("시발")과 expected[1]("개빡치네")
+    둘 다와 매칭 가능하다. 순서대로 훑는 그리디 매칭이면 predicted[0]이 expected[0]을
+    먼저 가로채서 predicted[1]("시발")이 짝을 못 찾아 1 TP/1 FP/1 FN이 되지만,
+    최적 매칭은 predicted[0]<->expected[1], predicted[1]<->expected[0]로 2 TP/0 FP/0 FN을 찾아야 한다."""
+    predicted = [_expr("시발 개빡치네", "욕설"), _expr("시발", "욕설")]
+    expected = [_exp("시발", "욕설"), _exp("개빡치네", "욕설")]
+
+    score = score_case(predicted, expected)
+
+    assert len(score.matched) == 2
+    assert score.false_positives == []
+    assert score.false_negatives == []
+
+
 from judgpt.eval import run_eval
 from judgpt.eval_data.golden import GoldenCase, GoldenExpectation
 from judgpt.llm import FakeLLM
+
+
+def test_run_eval_continues_after_one_case_raises_analysis_error():
+    """analyze()가 JSON 파싱을 두 번 연속 실패하면 AnalysisError를 던진다(analyzer.py 재시도 로직).
+    run_eval은 그 케이스만 error로 기록하고 나머지 케이스는 계속 채점해야 한다."""
+    cases = [
+        GoldenCase(chat_text="A: 깨진 응답", expected=[]),
+        GoldenCase(chat_text="A: 안녕", expected=[]),
+    ]
+    llm = FakeLLM([
+        "JSON 아님",
+        "여전히 JSON 아님",
+        '{"expressions": []}',
+    ])
+
+    report = run_eval(cases, llm)
+
+    assert len(report.cases) == 2
+    assert report.cases[0].score is None
+    assert report.cases[0].error is not None
+    assert report.cases[1].score is not None
+    assert report.cases[1].error is None
 
 
 def test_run_eval_scores_each_case_against_llm_output():
@@ -190,6 +227,27 @@ def test_format_eval_report_includes_risk_distribution():
     assert "높음 1 / 중간 0 / 낮음 0" in output
 
 
+def test_format_eval_report_lists_errored_cases_and_excludes_them_from_metrics():
+    report = EvalReport(cases=[
+        CaseResult(chat_text="A: 실패", error="모델 응답이 올바른 JSON 형식이 아닙니다"),
+        CaseResult(
+            chat_text="A: 성공",
+            score=CaseScore(
+                matched=[Expression(text="예시", type="모욕", risk="높음")],
+                false_negatives=[],
+                false_positives=[],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert "2개 케이스" in output
+    assert "1건 분석 실패" in output
+    assert "[케이스 1] 모델 응답이 올바른 JSON 형식이 아닙니다" in output
+    assert "Precision 1.00" in output
+
+
 def test_format_eval_report_shows_no_basis_for_overall_metrics():
     report = EvalReport(cases=[
         CaseResult(
@@ -250,3 +308,20 @@ def test_main_without_cases_loads_default_golden_dataset(monkeypatch):
     main([], llm=llm)
 
     assert calls == ["called"]
+
+
+def test_main_exits_with_clean_message_when_ollama_unreachable():
+    import httpx
+    import pytest
+    from openai import APIConnectionError
+
+    class _ConnectionErrorLLM:
+        def call(self, messages):
+            raise APIConnectionError(
+                request=httpx.Request("POST", "http://localhost:11434/v1/chat/completions")
+            )
+
+    cases = [GoldenCase(chat_text="A: 예시", expected=[])]
+
+    with pytest.raises(SystemExit, match="Ollama가.*응답하지 않습니다"):
+        main([], llm=_ConnectionErrorLLM(), cases=cases)

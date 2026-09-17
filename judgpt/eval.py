@@ -2,10 +2,11 @@ import argparse
 import json
 import sys
 
+from openai import APIConnectionError
 from pydantic import BaseModel
 
 from judgpt import config
-from judgpt.analyzer import analyze
+from judgpt.analyzer import AnalysisError, analyze
 from judgpt.eval_data.golden import GoldenCase, GoldenExpectation, load_golden_cases
 from judgpt.llm import LLM, OllamaLLM
 from judgpt.schema import Expression
@@ -19,30 +20,41 @@ class CaseScore(BaseModel):
 
 def score_case(predicted: list[Expression], expected: list[GoldenExpectation]) -> CaseScore:
     """순수 함수. LLM/Ollama 없이 유닛테스트로 전부 커버 가능.
-    predicted를 순서대로 순회하며, 각 predicted마다 아직 매칭 안 된 expected 중
-    (type 일치 + 부분 문자열 포함) 조건을 만족하는 첫 번째 항목과 짝짓는다."""
-    remaining_expected = list(expected)
-    matched: list[Expression] = []
-    false_positives: list[Expression] = []
+    predicted-expected 쌍 중 (type 일치 + 부분 문자열 포함) 조건을 만족하는 쌍들로
+    이분 그래프를 만들고, 매칭 개수(TP)를 최대화하는 1:1 매칭(Kuhn's algorithm)을 찾는다.
+    순서대로 훑는 그리디 매칭은 같은 type의 expected가 여럿일 때 실제로는 완전히
+    맞출 수 있는 경우에도 순서 때문에 FP/FN을 잘못 만들어낼 수 있어 최적 매칭을 쓴다."""
+    candidates: list[list[int]] = [
+        [j for j, exp in enumerate(expected) if pred.type == exp.type and (exp.text in pred.text or pred.text in exp.text)]
+        for pred in predicted
+    ]
+    match_to_pred: list[int] = [-1] * len(expected)
 
-    for pred in predicted:
-        match_index = None
-        for i, exp in enumerate(remaining_expected):
-            if pred.type == exp.type and (exp.text in pred.text or pred.text in exp.text):
-                match_index = i
-                break
-        if match_index is None:
-            false_positives.append(pred)
-        else:
-            matched.append(pred)
-            remaining_expected.pop(match_index)
+    def try_match(pred_idx: int, visited: set[int]) -> bool:
+        for exp_idx in candidates[pred_idx]:
+            if exp_idx in visited:
+                continue
+            visited.add(exp_idx)
+            if match_to_pred[exp_idx] == -1 or try_match(match_to_pred[exp_idx], visited):
+                match_to_pred[exp_idx] = pred_idx
+                return True
+        return False
 
-    return CaseScore(matched=matched, false_negatives=remaining_expected, false_positives=false_positives)
+    for pred_idx in range(len(predicted)):
+        try_match(pred_idx, set())
+
+    matched_pred_indices = {pred_idx for pred_idx in match_to_pred if pred_idx != -1}
+    matched = [pred for i, pred in enumerate(predicted) if i in matched_pred_indices]
+    false_positives = [pred for i, pred in enumerate(predicted) if i not in matched_pred_indices]
+    false_negatives = [exp for j, exp in enumerate(expected) if match_to_pred[j] == -1]
+
+    return CaseScore(matched=matched, false_negatives=false_negatives, false_positives=false_positives)
 
 
 class CaseResult(BaseModel):
     chat_text: str
-    score: CaseScore
+    score: CaseScore | None = None
+    error: str | None = None
 
 
 class EvalReport(BaseModel):
@@ -50,21 +62,39 @@ class EvalReport(BaseModel):
 
 
 def run_eval(cases: list[GoldenCase], llm: LLM) -> EvalReport:
+    """케이스 하나가 AnalysisError로 실패해도(모델이 두 번 연속 JSON을 잘못 뱉는 등)
+    나머지 케이스는 계속 채점한다 — 실패한 케이스는 score 없이 error만 채워서 기록하고,
+    최종 지표 계산에서는 제외한다(format_eval_report 참고)."""
     results = []
     for case in cases:
-        analysis = analyze(case.chat_text, llm)
+        try:
+            analysis = analyze(case.chat_text, llm)
+        except AnalysisError as exc:
+            results.append(CaseResult(chat_text=case.chat_text, error=str(exc)))
+            continue
         score = score_case(analysis.expressions, case.expected)
         results.append(CaseResult(chat_text=case.chat_text, score=score))
     return EvalReport(cases=results)
 
 
 def format_eval_report(report: EvalReport) -> str:
-    all_scores = [c.score for c in report.cases]
+    indexed_scores = [(i, c.score) for i, c in enumerate(report.cases, start=1) if c.score is not None]
+    all_scores = [s for _, s in indexed_scores]
     total_tp = sum(len(s.matched) for s in all_scores)
     total_fp = sum(len(s.false_positives) for s in all_scores)
     total_fn = sum(len(s.false_negatives) for s in all_scores)
 
-    lines = [f"[Eval 결과] {len(report.cases)}개 케이스", ""]
+    errored = [(i, c) for i, c in enumerate(report.cases, start=1) if c.error is not None]
+    header = f"[Eval 결과] {len(report.cases)}개 케이스"
+    if errored:
+        header += f" ({len(errored)}건 분석 실패, 지표에서 제외)"
+    lines = [header, ""]
+
+    if errored:
+        lines.append("분석 실패:")
+        for i, c in errored:
+            lines.append(f"  [케이스 {i}] {c.error}")
+        lines.append("")
 
     overall_p, overall_r, overall_f1 = _prf1(total_tp, total_fp, total_fn)
     overall_p_note = " (해당 없음)" if total_tp + total_fp == 0 else ""
@@ -90,7 +120,7 @@ def format_eval_report(report: EvalReport) -> str:
     lines.append("")
 
     lines.append("놓친 표현 (FN):")
-    fn_items = [(i, item) for i, s in enumerate(all_scores, start=1) for item in s.false_negatives]
+    fn_items = [(i, item) for i, s in indexed_scores for item in s.false_negatives]
     if not fn_items:
         lines.append("  없음")
     else:
@@ -99,7 +129,7 @@ def format_eval_report(report: EvalReport) -> str:
     lines.append("")
 
     lines.append("과탐지 (FP):")
-    fp_items = [(i, item) for i, s in enumerate(all_scores, start=1) for item in s.false_positives]
+    fp_items = [(i, item) for i, s in indexed_scores for item in s.false_positives]
     if not fp_items:
         lines.append("  없음")
     else:
@@ -156,7 +186,10 @@ def main(
     if cases is None:
         cases = load_golden_cases()
 
-    report = run_eval(cases, llm)
+    try:
+        report = run_eval(cases, llm)
+    except APIConnectionError as exc:
+        raise SystemExit(f"Ollama가 {config.OLLAMA_BASE_URL}에서 응답하지 않습니다") from exc
 
     if args.json:
         print(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))

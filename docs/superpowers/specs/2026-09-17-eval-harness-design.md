@@ -44,7 +44,7 @@ def load_golden_cases(path: Path = DEFAULT_GOLDEN_PATH) -> list[GoldenCase]: ...
 한 케이스 안에서 LLM이 예측한 `expressions`(`list[Expression]`)와 골든의 `expected`(`list[GoldenExpectation]`)를 1:1로 매칭한다.
 
 - 매칭 조건: `predicted.type == expected.type` **그리고** (`expected.text in predicted.text` 또는 `predicted.text in expected.text`) — 부분 문자열 포함이면 매칭으로 본다. LLM이 인용할 때 조사나 공백을 살짝 바꾸거나 더 길게/짧게 인용해도 허용하기 위함이다.
-- 탐욕적(greedy) 1:1 매칭: `predicted` 리스트를 순서대로 순회하면서, 각 predicted마다 아직 매칭 안 된 `expected` 중 조건을 만족하는 첫 번째 항목과 짝짓는다. 한 번 짝지어진 expected는 이후 predicted와 다시 매칭되지 않는다(중복 매칭 방지).
+- 최적(maximum-cardinality) 1:1 매칭: 조건을 만족하는 predicted-expected 쌍들로 이분 그래프를 만들고, 매칭 개수(TP)를 최대화하는 매칭을 찾는다(Kuhn's algorithm). 순서대로 훑는 그리디 매칭은 같은 type의 expected가 여럿일 때 실제로는 완전히 맞출 수 있는 경우에도 순서 때문에 FP/FN을 잘못 만들어낼 수 있어 채택하지 않는다 — 골든셋 케이스당 표현 개수가 적어(현재 15건 모두 0~1개) 성능 문제는 없다.
 - 매칭된 쌍 → **TP**(True Positive)
 - 매칭 안 된 expected → **FN**(False Negative, 놓친 표현)
 - 매칭 안 된 predicted → **FP**(False Positive, 과탐지)
@@ -66,10 +66,13 @@ def score_case(predicted: list[Expression], expected: list[GoldenExpectation]) -
 
 def run_eval(cases: list[GoldenCase], llm: LLM) -> EvalReport:
     """각 케이스마다 analyze(case.chat_text, llm)을 실제로 호출해 score_case()로 채점,
-    전체를 집계한 EvalReport를 만든다."""
+    전체를 집계한 EvalReport를 만든다. 한 케이스가 AnalysisError로 실패해도(모델이
+    JSON을 두 번 연속 잘못 뱉는 등) 나머지 케이스는 계속 채점한다 — 실패한 케이스는
+    score 없이 error 문자열만 채운 CaseResult로 기록하고, format_eval_report()의
+    지표 계산에서는 제외한다."""
 ```
 
-`CaseScore`/`EvalReport`는 `pydantic.BaseModel`로 정의(기존 스타일과 일관).
+`CaseScore`/`EvalReport`는 `pydantic.BaseModel`로 정의(기존 스타일과 일관). `CaseResult`의 `score`/`error`는 둘 다 optional이며 정확히 하나만 채워진다(성공 시 `score`, 실패 시 `error`).
 
 ## 3. 리포트 포맷 (`format_eval_report()`)
 
@@ -103,14 +106,15 @@ def run_eval(cases: list[GoldenCase], llm: LLM) -> EvalReport:
 - 인자 없이 실행하면 `judgpt/eval_data/golden.json` 전체를 기본 `OllamaLLM`(환경변수 `JUDGPT_MODEL`)으로 돌린다.
 - `--json`: 사람이 읽는 리포트 대신 원본 JSON 출력.
 - `llm` 파라미터를 주입받을 수 있게 해 테스트에서 `FakeLLM`으로 배선을 확인한다(`analyze.py main(argv, llm=...)`와 동일 패턴).
+- Ollama 자체가 안 떠 있어 `APIConnectionError`가 나면 `analyze.py main()`과 동일하게 잡아서 "Ollama가 {URL}에서 응답하지 않습니다" 메시지로 `SystemExit`한다 — 날것 traceback 대신.
 
 `--legal`이나 모델 비교(A/B) 같은 옵션은 지금 범위에 넣지 않는다 — 필요해지면 그때 추가.
 
 ## 5. 테스트 전략
 
 - `tests/test_eval.py`:
-  - `score_case()` 순수 로직: TP/FN/FP 각 케이스, 부분 문자열 매칭 허용 확인, type이 다르면 매칭 안 됨, 탐욕적 매칭의 중복 소비 방지.
-  - `run_eval()`: `FakeLLM`으로 골든 케이스 1~2개를 돌려 `score_case()`와 올바르게 연결되는지 확인.
+  - `score_case()` 순수 로직: TP/FN/FP 각 케이스, 부분 문자열 매칭 허용 확인, type이 다르면 매칭 안 됨, 중복 매칭 방지, 그리디로는 놓치는 최적 매칭 케이스(같은 type의 expected가 여럿이고 순서가 꼬인 경우) 확인.
+  - `run_eval()`: `FakeLLM`으로 골든 케이스 1~2개를 돌려 `score_case()`와 올바르게 연결되는지 확인. 한 케이스가 `AnalysisError`로 실패해도 나머지 케이스는 계속 채점되는지 확인.
   - `format_eval_report()`: 출력에 주요 지표가 포함되는지 확인.
   - `main()`: `FakeLLM` 주입 + `--json` 플래그 배선 테스트(`analyze.py`의 기존 CLI 테스트 패턴 재사용).
 - `judgpt/eval_data/golden.json` 자체를 실제 Ollama로 돌리는 건 자동 테스트 스위트에 넣지 않는다(비결정적·느림) — 사람이 필요할 때 `python -m judgpt.eval`을 직접 실행해서 확인한다. 이는 기존 컨벤션(`pytest -m integration`이 실제 Ollama가 있을 때만 도는 별도 마커)과 같은 이유다.
