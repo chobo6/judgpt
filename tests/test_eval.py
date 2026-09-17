@@ -167,7 +167,10 @@ def test_format_eval_report_shows_no_basis_when_type_never_predicted():
 
     output = format_eval_report(report)
 
-    assert "해당 없음" in output
+    # Check that "해당 없음" appears on the per-type line for "협박", not just anywhere in the output
+    lines = output.split('\n')
+    type_line = [l for l in lines if l.startswith('  협박 ')][0]
+    assert "해당 없음" in type_line
 
 
 def test_format_eval_report_includes_risk_distribution():
