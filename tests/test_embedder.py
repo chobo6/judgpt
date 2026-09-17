@@ -41,6 +41,14 @@ def test_ollama_embedder_targets_configured_base_url():
     assert embedder._client.api_key == "ollama"
 
 
+def test_ollama_embedder_client_uses_configured_timeout():
+    embedder = OllamaEmbedder(
+        model="nomic-embed-text", base_url="http://localhost:11434/v1", timeout=30.0
+    )
+
+    assert embedder._client.timeout == 30.0
+
+
 def test_ollama_embedder_embed_requests_correct_model_and_input():
     captured_kwargs = {}
 

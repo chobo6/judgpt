@@ -40,6 +40,18 @@ def test_ollama_llm_targets_configured_base_url():
     assert llm._client.api_key == "ollama"
 
 
+def test_ollama_llm_client_uses_default_timeout_when_not_set():
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1")
+
+    assert llm._client.timeout.read == 600
+
+
+def test_ollama_llm_client_uses_configured_timeout():
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1", timeout=30.0)
+
+    assert llm._client.timeout == 30.0
+
+
 def test_ollama_llm_call_requests_json_object_format(monkeypatch):
     captured_kwargs = {}
 

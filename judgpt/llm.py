@@ -24,10 +24,19 @@ class FakeLLM:
 class OllamaLLM:
     """Ollama의 OpenAI 호환 엔드포인트(/v1/chat/completions)를 호출한다."""
 
-    def __init__(self, model: str, base_url: str, temperature: float | None = None) -> None:
+    def __init__(
+        self,
+        model: str,
+        base_url: str,
+        temperature: float | None = None,
+        timeout: float | None = None,
+    ) -> None:
         self.model = model
         self.temperature = temperature
-        self._client = OpenAI(base_url=base_url, api_key="ollama")
+        kwargs: dict = {"base_url": base_url, "api_key": "ollama"}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        self._client = OpenAI(**kwargs)
 
     def call(self, messages: list[dict]) -> str:
         kwargs: dict = {

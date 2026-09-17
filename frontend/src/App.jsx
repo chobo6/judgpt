@@ -5,10 +5,11 @@ const DISCLAIMER =
   "이 결과는 참고용 정보이며 법적 판단이 아닙니다. 실제 법적 대응이 필요하면 변호사와 상담하세요.";
 
 function errorMessage(err) {
+  // 백엔드가 400/429/502/503마다 이미 사용자에게 보여줄 수 있는 한국어 문구를
+  // detail로 내려준다(judgpt/web/app.py) — 프론트에서 상태 코드별로 다시 매핑하지
+  // 않고 그대로 쓴다. 재매핑하면 400이 "빈 입력"과 "너무 긴 입력" 둘 다를 의미하게
+  // 됐을 때처럼 실제 원인과 다른 문구가 뜰 수 있다.
   if (!(err instanceof ApiError)) return "알 수 없는 오류가 발생했습니다";
-  if (err.status === 429) return "요청이 너무 많습니다. 잠시 후 다시 시도해주세요";
-  if (err.status === 502 || err.status === 503) return "서비스가 일시적으로 응답하지 않습니다";
-  if (err.status === 400) return "채팅 내용을 입력해주세요";
   return err.message;
 }
 

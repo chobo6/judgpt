@@ -32,9 +32,12 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 class OllamaEmbedder:
     """Ollama의 OpenAI 호환 임베딩 엔드포인트(/v1/embeddings)를 호출한다."""
 
-    def __init__(self, model: str, base_url: str) -> None:
+    def __init__(self, model: str, base_url: str, timeout: float | None = None) -> None:
         self.model = model
-        self._client = OpenAI(base_url=base_url, api_key="ollama")
+        kwargs: dict = {"base_url": base_url, "api_key": "ollama"}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        self._client = OpenAI(**kwargs)
 
     def embed(self, text: str) -> list[float]:
         response = self._client.embeddings.create(model=self.model, input=text)

@@ -1,10 +1,11 @@
 import os
 
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import APIConnectionError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -30,8 +31,16 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse
     )
 
 
+@app.exception_handler(RequestValidationError)
+def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "요청 형식이 올바르지 않습니다"},
+    )
+
+
 class AnalyzeRequest(BaseModel):
-    chat_text: str
+    chat_text: str = Field(max_length=100_000)
     legal: bool = False
 
 
