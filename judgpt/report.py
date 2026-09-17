@@ -1,4 +1,3 @@
-from judgpt.legal_data.articles import NEEDS_VERIFICATION
 from judgpt.legal_rag import EnrichedResult
 from judgpt.schema import AnalysisResult
 
@@ -51,7 +50,7 @@ def format_enriched_report(result: EnrichedResult) -> str:
             if expr.context:
                 lines.append(f"   맥락: {expr.context}")
             if expr.applicable_laws:
-                suffix = f" {VERIFICATION_NOTE}" if NEEDS_VERIFICATION else ""
+                suffix = f" {VERIFICATION_NOTE}" if result.needs_verification else ""
                 laws_text = ", ".join(expr.applicable_laws)
                 lines.append(f"   적용 가능 법률: {laws_text}{suffix}")
             else:

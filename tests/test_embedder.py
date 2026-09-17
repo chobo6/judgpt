@@ -63,3 +63,17 @@ def test_ollama_embedder_embed_requests_correct_model_and_input():
     assert result == [0.1, 0.2, 0.3]
     assert captured_kwargs["model"] == "nomic-embed-text"
     assert captured_kwargs["input"] == "텍스트"
+
+
+def test_ollama_embedder_embed_returns_empty_list_when_response_empty():
+    class _FakeEmptyEmbeddingResponse:
+        data = []
+
+    class _FakeEmbeddings:
+        def create(self, **kwargs):
+            return _FakeEmptyEmbeddingResponse()
+
+    embedder = OllamaEmbedder(model="nomic-embed-text", base_url="http://localhost:11434/v1")
+    embedder._client.embeddings = _FakeEmbeddings()
+
+    assert embedder.embed("텍스트") == []

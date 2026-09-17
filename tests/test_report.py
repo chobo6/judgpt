@@ -85,11 +85,13 @@ def test_format_enriched_report_shows_no_basis_when_empty():
     assert "관련 판례: 판단 근거 없음" in report
 
 
-def test_format_enriched_report_includes_verification_note_when_flag_true(monkeypatch):
-    monkeypatch.setattr("judgpt.report.NEEDS_VERIFICATION", True)
-    result = EnrichedResult(expressions=[
-        EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
-    ])
+def test_format_enriched_report_includes_verification_note_when_flag_true():
+    result = EnrichedResult(
+        expressions=[
+            EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
+        ],
+        needs_verification=True,
+    )
     report = format_enriched_report(result)
     assert VERIFICATION_NOTE in report
 

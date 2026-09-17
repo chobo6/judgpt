@@ -28,6 +28,9 @@ def enrich(
     """MVP의 AnalysisResult를 조문/판례 정보로 보강한다. 판례 임베딩은 호출마다
     새로 계산한다 — 코퍼스가 수십 건 수준으로 작아서(§4 판단 이유, docs/03-legal-rag-design.md)
     캐싱은 이 규모에서 불필요한 복잡도라고 판단했다."""
+    if not result.expressions:
+        return EnrichedResult(expressions=[], needs_verification=NEEDS_VERIFICATION)
+
     if cases is None:
         cases = load_cases()
     case_embeddings = [(case, embedder.embed(case.summary)) for case in cases]

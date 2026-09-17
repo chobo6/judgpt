@@ -90,6 +90,17 @@ def test_enrich_result_needs_verification_reflects_flag_when_true(monkeypatch):
     assert enriched.needs_verification is True
 
 
+def test_enrich_skips_embedding_cases_when_no_expressions():
+    """expressions가 비어 있으면 판례 임베딩을 아예 호출하지 않아야 한다(낭비 방지)."""
+    case = _case("테스트사건", "모욕")
+    result = AnalysisResult(expressions=[])
+    embedder = FakeEmbedder({})  # embed() 호출 시 AssertionError
+
+    enriched = enrich(result, embedder, cases=[case])
+
+    assert enriched.expressions == []
+
+
 def test_enrich_falls_back_to_text_when_context_is_none():
     case = _case("테스트사건", "모욕", summary="요약")
     result = AnalysisResult(

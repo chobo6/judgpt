@@ -38,4 +38,6 @@ class OllamaEmbedder:
 
     def embed(self, text: str) -> list[float]:
         response = self._client.embeddings.create(model=self.model, input=text)
+        if not response.data:
+            return []
         return response.data[0].embedding
