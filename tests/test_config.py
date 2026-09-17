@@ -25,3 +25,10 @@ def test_model_env_var_overrides_default(monkeypatch):
     finally:
         monkeypatch.delenv("JUDGPT_MODEL", raising=False)
         importlib.reload(config)
+
+
+def test_embedding_model_defaults_to_nomic_embed_text(monkeypatch):
+    monkeypatch.delenv("JUDGPT_EMBEDDING_MODEL", raising=False)
+    importlib.reload(config)
+
+    assert config.EMBEDDING_MODEL == "nomic-embed-text"

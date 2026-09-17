@@ -49,3 +49,59 @@ def test_disclaimer_exact_text():
         "이 결과는 참고용 정보이며 법적 판단이 아닙니다. "
         "실제 법적 대응이 필요하면 변호사와 상담하세요."
     )
+
+
+from judgpt.legal_data.articles import NEEDS_VERIFICATION
+from judgpt.legal_rag import EnrichedExpression, EnrichedResult
+from judgpt.report import VERIFICATION_NOTE, format_enriched_report
+
+
+def test_format_enriched_report_no_expressions():
+    result = EnrichedResult(expressions=[])
+    report = format_enriched_report(result)
+    assert "문제 표현이 발견되지 않았습니다" in report
+    assert DISCLAIMER in report
+
+
+def test_format_enriched_report_includes_laws_and_cases():
+    result = EnrichedResult(expressions=[
+        EnrichedExpression(
+            text="예시", type="모욕", risk="높음",
+            applicable_laws=["형법 제311조(모욕)"],
+            related_cases=["대법원 2019도7370 (대법원): 요약"],
+        ),
+    ])
+    report = format_enriched_report(result)
+    assert "적용 가능 법률: 형법 제311조(모욕)" in report
+    assert "관련 판례: 대법원 2019도7370 (대법원): 요약" in report
+
+
+def test_format_enriched_report_shows_no_basis_when_empty():
+    result = EnrichedResult(expressions=[
+        EnrichedExpression(text="예시", type="기타", risk="낮음", applicable_laws=[], related_cases=[]),
+    ])
+    report = format_enriched_report(result)
+    assert "적용 가능 법률: 판단 근거 없음" in report
+    assert "관련 판례: 판단 근거 없음" in report
+
+
+def test_format_enriched_report_includes_verification_note_when_flag_true():
+    result = EnrichedResult(
+        expressions=[
+            EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
+        ],
+        needs_verification=True,
+    )
+    report = format_enriched_report(result)
+    assert VERIFICATION_NOTE in report
+
+
+def test_format_enriched_report_omits_verification_note_when_flag_false():
+    """실제 NEEDS_VERIFICATION 값(2026-09-16 법제처 API로 조문 확인 완료, False)을
+    그대로 쓴다 — 재검증 경고가 더 이상 붙지 않아야 한다."""
+    assert NEEDS_VERIFICATION is False
+    result = EnrichedResult(expressions=[
+        EnrichedExpression(text="예시", type="모욕", risk="높음", applicable_laws=["형법 제311조(모욕)"]),
+    ])
+    report = format_enriched_report(result)
+    assert VERIFICATION_NOTE not in report
