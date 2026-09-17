@@ -195,3 +195,12 @@ def test_fetch_replay_endpoint_returns_502_on_fetch_failure(client):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "리플레이를 가져오지 못했습니다. 링크를 확인해주세요"}
+
+
+def test_fetch_replay_endpoint_uses_real_importer_by_default(client):
+    response = client.post(
+        "/api/fetch-replay", json={"url": "https://evil.com/history/kr/" + "a" * 32}
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "올바른 마피아42 리플레이 링크가 아닙니다"}

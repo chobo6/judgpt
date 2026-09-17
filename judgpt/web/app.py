@@ -69,7 +69,7 @@ def analyze_endpoint(
 
 
 class FetchReplayRequest(BaseModel):
-    url: str
+    url: str = Field(max_length=200)
 
 
 class FetchReplayResponse(BaseModel):

@@ -7,7 +7,8 @@ const DISCLAIMER =
 function errorMessage(err) {
   // 백엔드가 400/429/502/503마다 이미 사용자에게 보여줄 수 있는 한국어 문구를
   // detail로 내려준다(judgpt/web/app.py) — 프론트에서 상태 코드별로 다시 매핑하지
-  // 않고 그대로 쓴다.
+  // 않고 그대로 쓴다. 재매핑하면 400이 "빈 입력"과 "너무 긴 입력" 둘 다를 의미하게
+  // 됐을 때처럼 실제 원인과 다른 문구가 뜰 수 있다.
   if (!(err instanceof ApiError)) return "알 수 없는 오류가 발생했습니다";
   return err.message;
 }
@@ -41,6 +42,7 @@ export default function App() {
     e.preventDefault();
     setImporting(true);
     setError(null);
+    setResult(null);
     try {
       const text = await fetchReplay(replayUrl);
       setChatText(text);
