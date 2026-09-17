@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,7 +16,8 @@ from judgpt.embedder import Embedder
 from judgpt.legal_rag import EnrichedResult, enrich
 from judgpt.llm import LLM
 from judgpt.schema import AnalysisResult
-from judgpt.web.dependencies import get_embedder, get_llm
+from judgpt.web.dependencies import get_embedder, get_llm, get_replay_importer
+from judgpt.web.mafia42 import ReplayImportError
 
 app = FastAPI()
 
@@ -64,6 +66,28 @@ def analyze_endpoint(
         raise HTTPException(status_code=502, detail="분석에 실패했습니다. 다시 시도해주세요")
     except APIConnectionError:
         raise HTTPException(status_code=503, detail="분석 엔진이 응답하지 않습니다")
+
+
+class FetchReplayRequest(BaseModel):
+    url: str
+
+
+class FetchReplayResponse(BaseModel):
+    chat_text: str
+
+
+@app.post("/api/fetch-replay")
+@limiter.limit("5/minute")
+def fetch_replay_endpoint(
+    request: Request,
+    body: FetchReplayRequest,
+    importer: Callable[[str], str] = Depends(get_replay_importer),
+) -> FetchReplayResponse:
+    try:
+        chat_text = importer(body.url)
+    except ReplayImportError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    return FetchReplayResponse(chat_text=chat_text)
 
 
 _frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
