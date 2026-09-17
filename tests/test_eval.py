@@ -1,0 +1,84 @@
+from judgpt.eval import score_case
+from judgpt.eval_data.golden import GoldenExpectation
+from judgpt.schema import Expression
+
+
+def _expr(text, type_, risk="높음"):
+    return Expression(text=text, type=type_, risk=risk)
+
+
+def _exp(text, type_):
+    return GoldenExpectation(text=text, type=type_)
+
+
+def test_score_case_matches_exact_text_and_type_as_true_positive():
+    predicted = [_expr("너는 쓰레기야", "모욕")]
+    expected = [_exp("너는 쓰레기야", "모욕")]
+
+    score = score_case(predicted, expected)
+
+    assert score.matched == predicted
+    assert score.false_negatives == []
+    assert score.false_positives == []
+
+
+def test_score_case_matches_when_predicted_text_is_longer_substring():
+    predicted = [_expr("진짜 너는 쓰레기야 정말로", "모욕")]
+    expected = [_exp("너는 쓰레기야", "모욕")]
+
+    score = score_case(predicted, expected)
+
+    assert len(score.matched) == 1
+    assert score.false_negatives == []
+
+
+def test_score_case_matches_when_expected_text_is_longer_substring():
+    predicted = [_expr("쓰레기야", "모욕")]
+    expected = [_exp("진짜 너는 쓰레기야 정말로", "모욕")]
+
+    score = score_case(predicted, expected)
+
+    assert len(score.matched) == 1
+
+
+def test_score_case_does_not_match_when_type_differs():
+    predicted = [_expr("너는 쓰레기야", "욕설")]
+    expected = [_exp("너는 쓰레기야", "모욕")]
+
+    score = score_case(predicted, expected)
+
+    assert score.matched == []
+    assert score.false_positives == predicted
+    assert score.false_negatives == expected
+
+
+def test_score_case_unmatched_expected_is_false_negative():
+    predicted = []
+    expected = [_exp("놓친 표현", "협박")]
+
+    score = score_case(predicted, expected)
+
+    assert score.false_negatives == expected
+    assert score.matched == []
+    assert score.false_positives == []
+
+
+def test_score_case_unmatched_predicted_is_false_positive():
+    predicted = [_expr("과탐지된 표현", "명예훼손")]
+    expected = []
+
+    score = score_case(predicted, expected)
+
+    assert score.false_positives == predicted
+    assert score.matched == []
+
+
+def test_score_case_does_not_double_match_same_expected_twice():
+    predicted = [_expr("쓰레기야", "모욕"), _expr("쓰레기야", "모욕")]
+    expected = [_exp("쓰레기야", "모욕")]
+
+    score = score_case(predicted, expected)
+
+    assert len(score.matched) == 1
+    assert len(score.false_positives) == 1
+    assert score.false_negatives == []
