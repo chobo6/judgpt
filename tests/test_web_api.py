@@ -63,3 +63,21 @@ def test_analyze_endpoint_with_legal_flag_returns_enriched_result(client):
     data = response.json()
     assert data["expressions"][0]["applicable_laws"] == ["형법 제311조(모욕)"]
     assert "needs_verification" in data
+
+
+def test_analyze_endpoint_returns_503_when_ollama_unreachable(client):
+    import httpx
+    from openai import APIConnectionError
+
+    class _ConnectionErrorLLM:
+        def call(self, messages):
+            raise APIConnectionError(
+                request=httpx.Request("POST", "http://localhost:11434/v1/chat/completions")
+            )
+
+    app.dependency_overrides[get_llm] = lambda: _ConnectionErrorLLM()
+
+    response = client.post("/api/analyze", json={"chat_text": "A: 예시"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "분석 엔진이 응답하지 않습니다"}

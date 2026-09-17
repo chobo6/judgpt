@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException
+from openai import APIConnectionError
 from pydantic import BaseModel
 
 from judgpt.analyzer import AnalysisError, analyze
@@ -32,3 +33,5 @@ def analyze_endpoint(
         return result
     except AnalysisError:
         raise HTTPException(status_code=502, detail="분석에 실패했습니다. 다시 시도해주세요")
+    except APIConnectionError:
+        raise HTTPException(status_code=503, detail="분석 엔진이 응답하지 않습니다")
