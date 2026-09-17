@@ -1,6 +1,10 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from openai import APIConnectionError
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from judgpt.analyzer import AnalysisError, analyze
 from judgpt.embedder import Embedder
@@ -11,6 +15,17 @@ from judgpt.web.dependencies import get_embedder, get_llm
 
 app = FastAPI()
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "요청이 너무 많습니다. 잠시 후 다시 시도하세요"},
+    )
+
 
 class AnalyzeRequest(BaseModel):
     chat_text: str
@@ -18,7 +33,9 @@ class AnalyzeRequest(BaseModel):
 
 
 @app.post("/api/analyze")
+@limiter.limit("5/minute")
 def analyze_endpoint(
+    request: Request,
     body: AnalyzeRequest,
     llm: LLM = Depends(get_llm),
     embedder: Embedder = Depends(get_embedder),

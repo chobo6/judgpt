@@ -81,3 +81,17 @@ def test_analyze_endpoint_returns_503_when_ollama_unreachable(client):
 
     assert response.status_code == 503
     assert response.json() == {"detail": "분석 엔진이 응답하지 않습니다"}
+
+
+def test_analyze_endpoint_rate_limited_after_five_requests_per_minute(client):
+    fake_llm = FakeLLM(['{"expressions": []}'] * 5)
+    app.dependency_overrides[get_llm] = lambda: fake_llm
+
+    for _ in range(5):
+        response = client.post("/api/analyze", json={"chat_text": "A: 안녕"})
+        assert response.status_code == 200
+
+    response = client.post("/api/analyze", json={"chat_text": "A: 안녕"})
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "요청이 너무 많습니다. 잠시 후 다시 시도하세요"}
