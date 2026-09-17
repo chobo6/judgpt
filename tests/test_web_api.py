@@ -39,3 +39,27 @@ def test_analyze_endpoint_returns_400_on_empty_chat_text(client):
 
     assert response.status_code == 400
     assert response.json() == {"detail": "입력이 비어 있습니다"}
+
+
+from judgpt.embedder import FakeEmbedder
+from judgpt.legal_data.cases import load_cases
+
+
+def test_analyze_endpoint_with_legal_flag_returns_enriched_result(client):
+    fake_llm = FakeLLM([
+        '{"expressions": [{"text": "너는 쓰레기야", "type": "모욕", "risk": "높음"}]}'
+    ])
+    vectors = {case.summary: [0.1, 0.2, 0.3] for case in load_cases()}
+    vectors["너는 쓰레기야"] = [0.1, 0.2, 0.3]
+    fake_embedder = FakeEmbedder(vectors)
+    app.dependency_overrides[get_llm] = lambda: fake_llm
+    app.dependency_overrides[get_embedder] = lambda: fake_embedder
+
+    response = client.post(
+        "/api/analyze", json={"chat_text": "A: 예시", "legal": True}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["expressions"][0]["applicable_laws"] == ["형법 제311조(모욕)"]
+    assert "needs_verification" in data

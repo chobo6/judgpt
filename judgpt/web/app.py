@@ -2,9 +2,11 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from judgpt.analyzer import AnalysisError, analyze
+from judgpt.embedder import Embedder
+from judgpt.legal_rag import EnrichedResult, enrich
 from judgpt.llm import LLM
 from judgpt.schema import AnalysisResult
-from judgpt.web.dependencies import get_llm
+from judgpt.web.dependencies import get_embedder, get_llm
 
 app = FastAPI()
 
@@ -18,11 +20,15 @@ class AnalyzeRequest(BaseModel):
 def analyze_endpoint(
     body: AnalyzeRequest,
     llm: LLM = Depends(get_llm),
-) -> AnalysisResult:
+    embedder: Embedder = Depends(get_embedder),
+) -> AnalysisResult | EnrichedResult:
     if not body.chat_text.strip():
         raise HTTPException(status_code=400, detail="입력이 비어 있습니다")
 
     try:
-        return analyze(body.chat_text, llm)
+        result = analyze(body.chat_text, llm)
+        if body.legal:
+            return enrich(result, embedder)
+        return result
     except AnalysisError:
         raise HTTPException(status_code=502, detail="분석에 실패했습니다. 다시 시도해주세요")
