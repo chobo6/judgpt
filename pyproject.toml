@@ -24,3 +24,6 @@ markers = [
 
 [tool.setuptools.packages.find]
 include = ["judgpt*"]
+
+[tool.setuptools.package-data]
+judgpt = ["**/*.json"]

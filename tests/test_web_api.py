@@ -95,3 +95,12 @@ def test_analyze_endpoint_rate_limited_after_five_requests_per_minute(client):
 
     assert response.status_code == 429
     assert response.json() == {"detail": "요청이 너무 많습니다. 잠시 후 다시 시도하세요"}
+
+
+def test_analyze_endpoint_returns_502_on_analysis_error(client):
+    app.dependency_overrides[get_llm] = lambda: FakeLLM(["not json", "still not json"])
+
+    response = client.post("/api/analyze", json={"chat_text": "A: 예시"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "분석에 실패했습니다. 다시 시도해주세요"}
