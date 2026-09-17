@@ -1,5 +1,8 @@
+import os
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from openai import APIConnectionError
 from pydantic import BaseModel
 from slowapi import Limiter
@@ -52,3 +55,8 @@ def analyze_endpoint(
         raise HTTPException(status_code=502, detail="분석에 실패했습니다. 다시 시도해주세요")
     except APIConnectionError:
         raise HTTPException(status_code=503, detail="분석 엔진이 응답하지 않습니다")
+
+
+_frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.isdir(_frontend_dist):
+    app.mount("/", StaticFiles(directory=_frontend_dist, html=True), name="frontend")
