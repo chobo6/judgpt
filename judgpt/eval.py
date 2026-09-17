@@ -51,3 +51,78 @@ def run_eval(cases: list[GoldenCase], llm: LLM) -> EvalReport:
         score = score_case(analysis.expressions, case.expected)
         results.append(CaseResult(chat_text=case.chat_text, score=score))
     return EvalReport(cases=results)
+
+
+def format_eval_report(report: EvalReport) -> str:
+    all_scores = [c.score for c in report.cases]
+    total_tp = sum(len(s.matched) for s in all_scores)
+    total_fp = sum(len(s.false_positives) for s in all_scores)
+    total_fn = sum(len(s.false_negatives) for s in all_scores)
+
+    lines = [f"[Eval 결과] {len(report.cases)}개 케이스", ""]
+
+    overall_p, overall_r, overall_f1 = _prf1(total_tp, total_fp, total_fn)
+    lines.append(
+        f"전체: Precision {overall_p:.2f} ({total_tp}/{total_tp + total_fp})  "
+        f"Recall {overall_r:.2f} ({total_tp}/{total_tp + total_fn})  F1 {overall_f1:.2f}"
+    )
+    lines.append("")
+
+    lines.append("유형별:")
+    for t in sorted(_all_types(all_scores)):
+        tp = sum(1 for s in all_scores for m in s.matched if m.type == t)
+        fp = sum(1 for s in all_scores for m in s.false_positives if m.type == t)
+        fn = sum(1 for s in all_scores for m in s.false_negatives if m.type == t)
+        p, r, f1 = _prf1(tp, fp, fn)
+        p_note = " (해당 없음)" if tp + fp == 0 else ""
+        r_note = " (해당 없음)" if tp + fn == 0 else ""
+        lines.append(
+            f"  {t} P {p:.2f} ({tp}/{tp + fp}){p_note}  "
+            f"R {r:.2f} ({tp}/{tp + fn}){r_note}  F1 {f1:.2f}"
+        )
+    lines.append("")
+
+    lines.append("놓친 표현 (FN):")
+    fn_items = [(i, item) for i, s in enumerate(all_scores, start=1) for item in s.false_negatives]
+    if not fn_items:
+        lines.append("  없음")
+    else:
+        for i, item in fn_items:
+            lines.append(f'  [케이스 {i}] "{item.text}" ({item.type})')
+    lines.append("")
+
+    lines.append("과탐지 (FP):")
+    fp_items = [(i, item) for i, s in enumerate(all_scores, start=1) for item in s.false_positives]
+    if not fp_items:
+        lines.append("  없음")
+    else:
+        for i, item in fp_items:
+            lines.append(f'  [케이스 {i}] "{item.text}" ({item.type}) — 예측했지만 정답에 없음')
+    lines.append("")
+
+    risk_counts = {"높음": 0, "중간": 0, "낮음": 0}
+    for s in all_scores:
+        for m in s.matched:
+            risk_counts[m.risk] += 1
+    lines.append(
+        f"예측 risk 분포 (참고용): 높음 {risk_counts['높음']} / "
+        f"중간 {risk_counts['중간']} / 낮음 {risk_counts['낮음']}"
+    )
+
+    return "\n".join(lines)
+
+
+def _prf1(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return precision, recall, f1
+
+
+def _all_types(scores: list["CaseScore"]) -> set[str]:
+    types: set[str] = set()
+    for s in scores:
+        types.update(m.type for m in s.matched)
+        types.update(m.type for m in s.false_positives)
+        types.update(e.type for e in s.false_negatives)
+    return types

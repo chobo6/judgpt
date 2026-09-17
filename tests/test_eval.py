@@ -109,3 +109,79 @@ def test_run_eval_scores_each_case_against_llm_output():
     assert len(report.cases[0].score.matched) == 1
     assert report.cases[1].score.matched == []
     assert report.cases[1].score.false_positives == []
+
+
+from judgpt.eval import CaseResult, CaseScore, EvalReport, format_eval_report
+from judgpt.eval_data.golden import GoldenExpectation
+from judgpt.schema import Expression
+
+
+def test_format_eval_report_includes_overall_metrics():
+    report = EvalReport(cases=[
+        CaseResult(
+            chat_text="A: 너는 쓰레기야",
+            score=CaseScore(
+                matched=[Expression(text="너는 쓰레기야", type="모욕", risk="높음")],
+                false_negatives=[],
+                false_positives=[],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert "1개 케이스" in output
+    assert "Precision 1.00" in output
+    assert "Recall 1.00" in output
+
+
+def test_format_eval_report_lists_false_negatives_and_positives():
+    report = EvalReport(cases=[
+        CaseResult(
+            chat_text="A: 예시",
+            score=CaseScore(
+                matched=[],
+                false_negatives=[GoldenExpectation(text="놓친 표현", type="협박")],
+                false_positives=[Expression(text="과탐지 표현", type="기타", risk="낮음")],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert '"놓친 표현" (협박)' in output
+    assert '"과탐지 표현" (기타)' in output
+
+
+def test_format_eval_report_shows_no_basis_when_type_never_predicted():
+    report = EvalReport(cases=[
+        CaseResult(
+            chat_text="A: 예시",
+            score=CaseScore(
+                matched=[],
+                false_negatives=[GoldenExpectation(text="놓친 표현", type="협박")],
+                false_positives=[],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert "해당 없음" in output
+
+
+def test_format_eval_report_includes_risk_distribution():
+    report = EvalReport(cases=[
+        CaseResult(
+            chat_text="A: 예시",
+            score=CaseScore(
+                matched=[Expression(text="예시", type="모욕", risk="높음")],
+                false_negatives=[],
+                false_positives=[],
+            ),
+        ),
+    ])
+
+    output = format_eval_report(report)
+
+    assert "높음 1 / 중간 0 / 낮음 0" in output
