@@ -28,7 +28,8 @@
 - `legal_data/` — `articles.py`(표현 유형 → 조문 규칙 매핑 `ARTICLE_MAP`, 아직 사람이 확인 전임을 표시하는 `NEEDS_VERIFICATION` 플래그), `cases.json`/`cases.py`(직접 큐레이션한 판례 코퍼스와 로더), `fetch_statutes.py`(법제처 Open API로 조문을 검증하는 스크립트, CLI 실행 경로에서는 자동 호출되지 않음).
 - `report.py` — `AnalysisResult`를 사람이 읽는 리포트 문자열로 변환. `DISCLAIMER`(참고용 정보 고지)는 항상 고정 문구로 붙인다 — 모델 출력에 맡기지 않는다. 사람이 읽는 리포트에는 본문 끝에 포함되고, `--json` 모드에서는 `main()`이 별도로 stderr에 출력한다(둘 다 항상 표시됨). `--legal` 결과(`EnrichedResult`)는 `format_enriched_report()`가 별도로 사람이 읽는 리포트로 변환하며, `NEEDS_VERIFICATION`이 참인 동안은 조문 뒤에 재검증 필요 경고를 붙인다.
 - `analyze.py` — CLI 진입점. `run()`은 순수 함수(테스트하기 쉬움, I/O 없음)로 그대로 유지되고, `main()`이 argparse + 파일/stdin 읽기 + `OllamaLLM` 생성 + 출력(및 `--json`일 때 stderr로의 `DISCLAIMER` 출력) 등 모든 I/O를 담당한다. `main(argv, llm=...)`처럼 `llm`을 주입할 수 있어 테스트가 실제 Ollama 없이 전체 CLI 흐름을 검증한다. `run()`/`main()` 둘 다 `embedder` 파라미터를 받는다 — `--legal`일 때만 쓰이고, `main()`은 `embedder`가 주어지지 않으면 `OllamaEmbedder`를 직접 만들어 주입한다.
-- `web/app.py` — FastAPI 앱. `POST /api/analyze`가 `judgpt.analyzer.analyze()`/`judgpt.legal_rag.enrich()`를 직접 호출한다(`judgpt.analyze.run()`은 안 씀 — `run()`은 `AnalysisError`를 `SystemExit`으로 바꿔버려 서버 핸들러가 못 잡는다). IP당 분당 5회 rate limit(`slowapi`), 400/429/502/503 에러를 `{"detail": "..."}`로 매핑. `frontend/dist`가 있으면(Docker 빌드 시) 정적 파일도 같이 서빙한다.
+- `web/app.py` — FastAPI 앱. `POST /api/analyze`가 `judgpt.analyzer.analyze()`/`judgpt.legal_rag.enrich()`를 직접 호출한다(`judgpt.analyze.run()`은 안 씀 — `run()`은 `AnalysisError`를 `SystemExit`으로 바꿔버려 서버 핸들러가 못 잡는다). IP당 분당 5회 rate limit(`slowapi`), 400/429/502/503 에러를 `{"detail": "..."}`로 매핑. `frontend/dist`가 있으면(Docker 빌드 시) 정적 파일도 같이 서빙한다. `POST /api/fetch-replay`(마피아42 리플레이 링크 → 채팅 텍스트 추출)도 같은 rate limit(분당 5회)으로 노출하며, `ReplayImportError`의 `status_code`(400/502)를 그대로 `HTTPException`에 실어 보낸다.
+- `web/mafia42.py` — `fetch_replay_chat_text(url) -> str`: 마피아42 리플레이 링크(`https://mafia42.com/history/{lang}/{id}`)를 검증하고, 그 안에 임베드된 채팅 API(`GetMafiaChat`, `Referer` 헤더로만 인증)를 호출해 서버 렌더링된 HTML을 `BeautifulSoup`으로 파싱, `"화자: 메시지"` 줄로 바꾼다. 사용자가 준 URL을 그대로 요청 대상으로 쓰지 않고 정규식으로 `lang`/`id`만 뽑아 고정 호스트 URL을 직접 조립한다(SSRF 방지) — 설계 배경은 `docs/superpowers/specs/2026-09-17-mafia42-replay-import-design.md` 참고.
 - `web/dependencies.py` — `get_llm()`/`get_embedder()`: 앱 전역에서 재사용하는 `OllamaLLM`/`OllamaEmbedder` 싱글턴. FastAPI `Depends`로 주입되고, 테스트에서 `FakeLLM`/`FakeEmbedder`로 오버라이드된다.
 
 모델은 기본 `exaone3.5:7.8b`(한국어 특화)이고 `qwen2.5:7b`로 교체해볼 수 있다 — eval 하네스로 실측한 결과 전체 F1은 비슷하지만 유형별 강점이 갈린다(exaone은 명예훼손·협박, qwen은 욕설·성적 발언; qwen은 협박에서 피해자 발언을 가해 발언으로 오분류하는 문제도 있음). 협박 탐지 우위를 근거로 exaone을 기본값으로 유지 — 자세한 수치는 `docs/TROUBLESHOOTING.md` #13.
@@ -43,4 +44,4 @@ Ollama가 로컬에 설치되어 있고 `ollama pull exaone3.5:7.8b`로 모델�
 
 ## 범위 밖 (아직 없음)
 
-- 카카오톡 등 메신저 포맷 자동 파싱.
+- 카카오톡 등 메신저 포맷 자동 파싱(마피아42 리플레이 링크 가져오기는 지원 — `web/mafia42.py` 참고).

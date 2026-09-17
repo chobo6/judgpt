@@ -1,8 +1,10 @@
 from collections import OrderedDict
+from typing import Callable
 
 from judgpt import config
 from judgpt.embedder import Embedder, OllamaEmbedder
 from judgpt.llm import LLM, OllamaLLM
+from judgpt.web.mafia42 import fetch_replay_chat_text
 
 _REQUEST_TIMEOUT_SECONDS = 30.0
 
@@ -62,3 +64,7 @@ def get_embedder() -> Embedder:
             )
         )
     return _embedder
+
+
+def get_replay_importer() -> Callable[[str], str]:
+    return fetch_replay_chat_text

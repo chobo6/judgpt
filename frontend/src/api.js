@@ -19,3 +19,19 @@ export async function analyzeChat(chatText, legal) {
 
   return response.json();
 }
+
+export async function fetchReplay(url) {
+  const response = await fetch("/api/fetch-replay", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, body.detail || "알 수 없는 오류가 발생했습니다");
+  }
+
+  const data = await response.json();
+  return data.chat_text;
+}

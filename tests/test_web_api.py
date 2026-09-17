@@ -150,3 +150,57 @@ def test_analyze_endpoint_returns_502_on_analysis_error(client):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "분석에 실패했습니다. 다시 시도해주세요"}
+
+
+from judgpt.web.dependencies import get_replay_importer
+from judgpt.web.mafia42 import ReplayImportError
+
+
+def test_fetch_replay_endpoint_returns_chat_text(client):
+    app.dependency_overrides[get_replay_importer] = lambda: (lambda url: "케로신: 안녕")
+
+    response = client.post(
+        "/api/fetch-replay",
+        json={"url": "https://mafia42.com/history/kr/743e94a801dff38ddf6c159c130d5777"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"chat_text": "케로신: 안녕"}
+
+
+def test_fetch_replay_endpoint_returns_400_on_invalid_url(client):
+    def _raise(url):
+        raise ReplayImportError("올바른 마피아42 리플레이 링크가 아닙니다", status_code=400)
+
+    app.dependency_overrides[get_replay_importer] = lambda: _raise
+
+    response = client.post("/api/fetch-replay", json={"url": "https://evil.com/x"})
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "올바른 마피아42 리플레이 링크가 아닙니다"}
+
+
+def test_fetch_replay_endpoint_returns_502_on_fetch_failure(client):
+    def _raise(url):
+        raise ReplayImportError(
+            "리플레이를 가져오지 못했습니다. 링크를 확인해주세요", status_code=502
+        )
+
+    app.dependency_overrides[get_replay_importer] = lambda: _raise
+
+    response = client.post(
+        "/api/fetch-replay",
+        json={"url": "https://mafia42.com/history/kr/743e94a801dff38ddf6c159c130d5777"},
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "리플레이를 가져오지 못했습니다. 링크를 확인해주세요"}
+
+
+def test_fetch_replay_endpoint_uses_real_importer_by_default(client):
+    response = client.post(
+        "/api/fetch-replay", json={"url": "https://evil.com/history/kr/" + "a" * 32}
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "올바른 마피아42 리플레이 링크가 아닙니다"}

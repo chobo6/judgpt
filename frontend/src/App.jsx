@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { analyzeChat, ApiError } from "./api";
+import { analyzeChat, fetchReplay, ApiError } from "./api";
 
 const DISCLAIMER =
   "이 결과는 참고용 정보이며 법적 판단이 아닙니다. 실제 법적 대응이 필요하면 변호사와 상담하세요.";
@@ -14,7 +14,10 @@ function errorMessage(err) {
 }
 
 export default function App() {
+  const [tab, setTab] = useState("text");
   const [chatText, setChatText] = useState("");
+  const [replayUrl, setReplayUrl] = useState("");
+  const [importing, setImporting] = useState(false);
   const [legal, setLegal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -35,30 +38,80 @@ export default function App() {
     }
   }
 
+  async function handleImport(e) {
+    e.preventDefault();
+    setImporting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const text = await fetchReplay(replayUrl);
+      setChatText(text);
+      setTab("text");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div>
       <h1>judgpt</h1>
-      <form onSubmit={handleSubmit}>
-        <textarea
-          value={chatText}
-          onChange={(e) => setChatText(e.target.value)}
-          placeholder="채팅 내용을 붙여넣으세요"
-          rows={10}
-        />
-        <div>
-          <label>
-            <input
-              type="checkbox"
-              checked={legal}
-              onChange={(e) => setLegal(e.target.checked)}
-            />
-            법률 정보 포함(조문/판례)
-          </label>
-        </div>
-        <button type="submit" disabled={loading}>
-          {loading ? "분석 중..." : "분석하기"}
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setTab("text")}
+          disabled={tab === "text" || importing}
+        >
+          텍스트 붙여넣기
         </button>
-      </form>
+        <button
+          type="button"
+          onClick={() => setTab("link")}
+          disabled={tab === "link" || importing}
+        >
+          리플레이 링크
+        </button>
+      </div>
+
+      {tab === "link" && (
+        <form onSubmit={handleImport}>
+          <input
+            type="url"
+            value={replayUrl}
+            onChange={(e) => setReplayUrl(e.target.value)}
+            placeholder="https://mafia42.com/history/kr/..."
+          />
+          <button type="submit" disabled={importing}>
+            {importing ? "가져오는 중..." : "가져오기"}
+          </button>
+        </form>
+      )}
+
+      {tab === "text" && (
+        <form onSubmit={handleSubmit}>
+          <textarea
+            value={chatText}
+            onChange={(e) => setChatText(e.target.value)}
+            placeholder="채팅 내용을 붙여넣으세요"
+            rows={10}
+          />
+          <div>
+            <label>
+              <input
+                type="checkbox"
+                checked={legal}
+                onChange={(e) => setLegal(e.target.checked)}
+              />
+              법률 정보 포함(조문/판례)
+            </label>
+          </div>
+          <button type="submit" disabled={loading}>
+            {loading ? "분석 중..." : "분석하기"}
+          </button>
+        </form>
+      )}
 
       {error && <p role="alert">{error}</p>}
 
