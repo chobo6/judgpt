@@ -10,6 +10,7 @@
 - CLI 실행: `python -m judgpt.analyze --file chat.txt` 또는 `cat chat.txt | python -m judgpt.analyze`
 - 원본 JSON 출력: `python -m judgpt.analyze --file chat.txt --json`
 - 조문/판례 정보 포함(법률 RAG): `python -m judgpt.analyze --file chat.txt --legal` (대화가 온라인/공개 채널에서 이루어졌다면 `--online`도 함께 줘서 가중 조항까지 포함시킬 수 있다 — `--legal` 없이는 효과 없음)
+- 판단 정확도 측정(eval 하네스): `python -m judgpt.eval` (골든 데이터셋으로 유형별/전체 precision·recall·F1을 계산해 출력한다. Ollama가 떠 있어야 한다. `--json`으로 원본 JSON 출력도 가능)
 - 환경변수: `JUDGPT_MODEL`(기본 `exaone3.5:7.8b`), `OLLAMA_BASE_URL`(기본 `http://localhost:11434/v1`), `JUDGPT_EMBEDDING_MODEL`(기본 `nomic-embed-text`, `--legal` 사용 시에만 필요), `JUDGPT_LAW_API_OC`(법제처 Open API 인증키, `fetch_statutes.py` 검증 스크립트에서만 필요)
 
 ## 아키텍처
@@ -39,4 +40,4 @@ Ollama가 로컬에 설치되어 있고 `ollama pull exaone3.5:7.8b`로 모델�
 
 ## 범위 밖 (아직 없음)
 
-- 웹 UI, 카카오톡 등 메신저 포맷 자동 파싱, 자동 채점 eval 하네스.
+- 웹 UI, 카카오톡 등 메신저 포맷 자동 파싱.
