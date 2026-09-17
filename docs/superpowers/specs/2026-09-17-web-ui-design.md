@@ -23,14 +23,14 @@
 FastAPI 서버 (judgpt/web/)
     │  기존 함수 직접 호출 — 탐지 로직 재구현 없음
     ▼
-judgpt.analyze.run() → judgpt.analyzer.analyze() / judgpt.legal_rag.enrich()
+judgpt.analyzer.analyze() / judgpt.legal_rag.enrich()  (judgpt.analyze.run()이 감싸고 있는 순수 함수 레이어)
     │
     ▼
 같은 서버의 Ollama (exaone3.5:7.8b, --legal이면 nomic-embed-text도)
 ```
 
 - 새 디렉터리 두 개를 리포에 추가한다: `judgpt/web/`(FastAPI 백엔드, 기존 패키지 안에 위치해 `judgpt.analyzer`/`judgpt.legal_rag` 등을 바로 import), `frontend/`(React+Vite, 별도 Node 프로젝트).
-- 기존 CLI(`judgpt/analyze.py`)와 신규 웹 백엔드는 둘 다 `judgpt.analyze.run()`을 호출하는 얇은 진입점이라는 점에서 대칭이다 — `run()`은 이미 순수 함수(I/O 없음)로 설계되어 있어 이번 작업에서 손댈 필요가 없다.
+- 기존 CLI(`judgpt/analyze.py`)와 신규 웹 백엔드는 둘 다 같은 순수 함수 레이어(`judgpt.analyzer.analyze()`, `judgpt.legal_rag.enrich()`)를 호출하는 얇은 진입점이라는 점에서 대칭이다 — CLI는 `run()`을 통해, 웹은 직접 호출한다(§3에서 이유 설명). 그 아래 레이어는 이번 작업에서 손댈 필요가 없다.
 - `POST /api/analyze` 하나만 있는 동기(synchronous) REST 엔드포인트로 시작한다. LLM 호출이 수 초~수십 초 걸리지만, 요청-응답 한 번으로 끝나는 이 규모(단일 채팅 분석)에는 웹소켓/SSE 스트리밍이나 작업 큐가 과한 설계다 — 필요해지면(동시 사용자가 많아 타임아웃이 잦아지면) 그때 도입을 검토한다.
 
 ## 3. API 계약
@@ -51,7 +51,7 @@ POST /api/analyze
   503: {"detail": "분석 엔진이 응답하지 않습니다"}                  — Ollama APIConnectionError
 ```
 
-- 엔드포인트 핸들러는 `judgpt.analyze.run(chat_text, llm, as_json=True, legal=legal, embedder=embedder if legal else None)`을 그대로 호출해 JSON 문자열을 받고, 그 문자열을 파싱 없이 그대로 응답 본문으로 반환한다 — 직렬화 로직을 새로 만들지 않는다(`run()`이 이미 `json.dumps(..., ensure_ascii=False)`로 직렬화).
+- 엔드포인트 핸들러는 `judgpt.analyze.run()`을 호출하지 **않는다** — `run()`은 `AnalysisError`를 `SystemExit`으로 바꿔버리는데(`judgpt/analyze.py`), 이건 프로세스를 바로 끝내는 CLI에는 맞는 동작이지만 장수 실행되는 서버 핸들러가 잡기에는 부적절한 예외 타입이다(`SystemExit`은 `Exception`이 아니라 `BaseException`이라 일반적인 에러 처리 경로에 안 걸림). 대신 `run()`이 감싸고 있는 더 아래 레이어인 `judgpt.analyzer.analyze()`와 `judgpt.legal_rag.enrich()`를 핸들러가 직접 호출하고, `AnalysisError`/`APIConnectionError`를 핸들러에서 바로 잡아 §3의 HTTP 상태 코드로 매핑한다. 정상 응답은 `result.model_dump()`(legal=false) 또는 `enriched.model_dump()`(legal=true)를 FastAPI가 알아서 JSON으로 직렬화하도록 그대로 반환한다(Pydantic 모델을 FastAPI 라우트가 반환하면 자동 직렬화됨 — `json.dumps`를 직접 호출할 필요 없음).
 - `DISCLAIMER`(참고용 정보 고지)는 백엔드가 새로 만들지 않는다 — CLI와 동일하게 프론트가 고정 문구로 항상 표시한다(§5). API 응답 자체에는 고지 문구를 포함하지 않는다(기존 `--json` 모드가 stdout엔 순수 JSON만, 고지는 별도 stderr로 내보내는 것과 같은 정신 — 여기서는 "고지는 프론트의 고정 UI 요소"로 치환).
 - **에러 매핑**: 핸들러에서 `chat_text.strip()`이 비면 400, `analyze()`가 던지는 `judgpt.analyzer.AnalysisError`(재시도 후에도 JSON 파싱 실패)는 500으로 통과시키지 않고 502(analysis failed)로 매핑, `openai.APIConnectionError`는 503으로 매핑한다.
 
@@ -102,7 +102,7 @@ Dockerfile                    # 백엔드(+ 빌드된 프론트 정적 파일) �
 ## 8. Global Constraints (구현 계획에 그대로 전달)
 
 - `judgpt/analyzer.py`, `judgpt/schema.py`, `judgpt/llm.py`, `judgpt/legal_rag.py`, `judgpt/report.py`, `judgpt/embedder.py`, `judgpt/analyze.py`의 기존 로직은 수정하지 않는다 — 웹 레이어는 그 위에 얇게 얹는다.
-- 탐지/법률 RAG 로직을 웹 백엔드에 재구현하지 않는다 — 반드시 `judgpt.analyze.run()`을 호출한다.
+- 탐지/법률 RAG 로직을 웹 백엔드에 재구현하지 않는다 — 반드시 `judgpt.analyzer.analyze()`/`judgpt.legal_rag.enrich()`를 호출한다(§3 참고 — `judgpt.analyze.run()`은 CLI 전용 `SystemExit` 변환 때문에 쓰지 않는다).
 - 계정/로그인, 서버 측 결과 저장(로그 포함), 프론트 로컬스토리지 저장을 추가하지 않는다.
 - `DISCLAIMER` 고지 문구는 프론트에 고정 문구로 존재해야 하며, 어떤 응답 경로로도 생략되면 안 된다.
 - rate limit은 IP당 분당 5회, `slowapi` 사용.
