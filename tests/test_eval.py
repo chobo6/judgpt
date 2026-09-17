@@ -325,3 +325,21 @@ def test_main_exits_with_clean_message_when_ollama_unreachable():
 
     with pytest.raises(SystemExit, match="Ollama가.*응답하지 않습니다"):
         main([], llm=_ConnectionErrorLLM(), cases=cases)
+
+
+def test_main_without_llm_constructs_ollama_llm_with_zero_temperature(monkeypatch):
+    captured_kwargs = {}
+
+    class _FakeOllamaLLM:
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        def call(self, messages):
+            return '{"expressions": []}'
+
+    monkeypatch.setattr("judgpt.eval.OllamaLLM", _FakeOllamaLLM)
+    cases = [GoldenCase(chat_text="A: 안녕", expected=[])]
+
+    main([], cases=cases)
+
+    assert captured_kwargs["temperature"] == 0

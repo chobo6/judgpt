@@ -46,6 +46,17 @@ def test_system_prompt_distinguishes_sexual_remark_from_harassment():
     assert "성희롱: 상대방이 거부 의사" in system_content
 
 
+def test_system_prompt_includes_implicit_threat_criterion():
+    """실측(TROUBLESHOOTING.md #12)에서 "너희 집 어딘지 알아 조심해"처럼 명시적 위협
+    어휘 없이 거주지 등을 언급하며 불안감을 조성하는 암시적 협박을 모델이 8/8 전부
+    놓치는 패턴이 확인됐다 — 협박에도 성적 발언/성희롱처럼 판단 기준을 명시해야 한다."""
+    messages = build_messages("아무 텍스트")
+    system_content = messages[0]["content"]
+
+    assert "협박: " in system_content
+    assert "암시적" in system_content
+
+
 def test_system_prompt_requires_json_only_response():
     messages = build_messages("아무 텍스트")
     system_content = messages[0]["content"]

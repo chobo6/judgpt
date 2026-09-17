@@ -182,7 +182,9 @@ def main(
     args = parser.parse_args(argv)
 
     if llm is None:
-        llm = OllamaLLM(model=config.MODEL, base_url=config.OLLAMA_BASE_URL)
+        # temperature=0 — 실사용(analyze.py)과 달리 eval은 같은 입력을 반복 측정해
+        # 프롬프트/모델 변경 전후를 비교해야 하므로 샘플링 변동을 없앤다.
+        llm = OllamaLLM(model=config.MODEL, base_url=config.OLLAMA_BASE_URL, temperature=0)
     if cases is None:
         cases = load_golden_cases()
 

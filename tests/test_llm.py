@@ -96,6 +96,62 @@ def test_ollama_llm_call_returns_empty_string_when_content_is_none(monkeypatch):
     assert result == ""
 
 
+def test_ollama_llm_call_omits_temperature_by_default():
+    captured_kwargs = {}
+
+    class _FakeMessage:
+        content = '{"expressions": []}'
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeCompletion:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return _FakeCompletion()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1")
+    llm._client.chat = _FakeChat()
+
+    llm.call([{"role": "user", "content": "질문"}])
+
+    assert "temperature" not in captured_kwargs
+
+
+def test_ollama_llm_call_passes_temperature_when_set():
+    captured_kwargs = {}
+
+    class _FakeMessage:
+        content = '{"expressions": []}'
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeCompletion:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return _FakeCompletion()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1", temperature=0)
+    llm._client.chat = _FakeChat()
+
+    llm.call([{"role": "user", "content": "질문"}])
+
+    assert captured_kwargs["temperature"] == 0
+
+
 def test_ollama_llm_call_returns_empty_string_when_choices_is_empty(monkeypatch):
     class _FakeCompletion:
         choices = []

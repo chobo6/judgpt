@@ -24,16 +24,20 @@ class FakeLLM:
 class OllamaLLM:
     """Ollama의 OpenAI 호환 엔드포인트(/v1/chat/completions)를 호출한다."""
 
-    def __init__(self, model: str, base_url: str) -> None:
+    def __init__(self, model: str, base_url: str, temperature: float | None = None) -> None:
         self.model = model
+        self.temperature = temperature
         self._client = OpenAI(base_url=base_url, api_key="ollama")
 
     def call(self, messages: list[dict]) -> str:
-        completion = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            response_format={"type": "json_object"},
-        )
+        kwargs: dict = {
+            "model": self.model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+        }
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        completion = self._client.chat.completions.create(**kwargs)
         if not completion.choices:
             return ""
         return completion.choices[0].message.content or ""
