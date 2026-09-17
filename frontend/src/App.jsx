@@ -55,12 +55,18 @@ export default function App() {
   }
 
   return (
-    <div>
-      <h1>judgpt</h1>
+    <div className="sheet">
+      <header className="masthead">
+        <h1>Judgpt</h1>
+        <p>유해표현 판독기</p>
+      </header>
 
-      <div>
+      <div className="tabs" role="tablist" aria-label="입력 방식">
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "text"}
+          className="tab"
           onClick={() => setTab("text")}
           disabled={tab === "text" || importing}
         >
@@ -68,6 +74,9 @@ export default function App() {
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={tab === "link"}
+          className="tab"
           onClick={() => setTab("link")}
           disabled={tab === "link" || importing}
         >
@@ -75,82 +84,123 @@ export default function App() {
         </button>
       </div>
 
-      {tab === "link" && (
-        <form onSubmit={handleImport}>
-          <input
-            type="url"
-            value={replayUrl}
-            onChange={(e) => setReplayUrl(e.target.value)}
-            placeholder="https://mafia42.com/history/kr/..."
-          />
-          <button type="submit" disabled={importing}>
-            {importing ? "가져오는 중..." : "가져오기"}
-          </button>
-        </form>
-      )}
-
-      {tab === "text" && (
-        <form onSubmit={handleSubmit}>
-          <textarea
-            value={chatText}
-            onChange={(e) => setChatText(e.target.value)}
-            placeholder="채팅 내용을 붙여넣으세요"
-            rows={10}
-          />
-          <div>
-            <label>
-              <input
-                type="checkbox"
-                checked={legal}
-                onChange={(e) => setLegal(e.target.checked)}
-              />
-              법률 정보 포함(조문/판례)
+      <div className="panel">
+        {tab === "link" && (
+          <form onSubmit={handleImport}>
+            <label className="field-label" htmlFor="replay-url">
+              마피아42 리플레이 링크
             </label>
-          </div>
-          <button type="submit" disabled={loading}>
-            {loading ? "분석 중..." : "분석하기"}
-          </button>
-        </form>
-      )}
+            <div className="import-row">
+              <input
+                id="replay-url"
+                className="link-input"
+                type="url"
+                value={replayUrl}
+                onChange={(e) => setReplayUrl(e.target.value)}
+                placeholder="https://mafia42.com/history/kr/..."
+              />
+              <button type="submit" className="btn-primary" disabled={importing}>
+                {importing ? "가져오는 중..." : "가져오기"}
+              </button>
+            </div>
+          </form>
+        )}
 
-      {error && <p role="alert">{error}</p>}
+        {tab === "text" && (
+          <form onSubmit={handleSubmit}>
+            <label className="field-label" htmlFor="chat-text">
+              채팅 내용
+            </label>
+            <textarea
+              id="chat-text"
+              className="chat-input"
+              value={chatText}
+              onChange={(e) => setChatText(e.target.value)}
+              placeholder="채팅 내용을 붙여넣으세요"
+              rows={10}
+            />
+            <div className="form-footer">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={legal}
+                  onChange={(e) => setLegal(e.target.checked)}
+                />
+                법률 정보 포함(조문/판례)
+              </label>
+              <button type="submit" className="btn-primary" disabled={loading}>
+                {loading ? "분석 중..." : "분석하기"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {error && (
+        <p className="notice-error" role="alert">
+          {error}
+        </p>
+      )}
 
       {result && (
-        <div>
+        <section className="results">
+          <h2>판독 결과</h2>
           {result.expressions.length === 0 ? (
-            <p>문제 표현이 발견되지 않았습니다.</p>
+            <p className="empty-state">유해 표현이 발견되지 않았습니다.</p>
           ) : (
             result.expressions.map((expr, i) => (
-              <div key={i}>
-                <p>"{expr.text}"</p>
-                <p>유형: {expr.type}</p>
-                <p>위험도: {expr.risk}</p>
-                {expr.target && <p>대상: {expr.target}</p>}
-                {expr.context && <p>맥락: {expr.context}</p>}
-                {expr.applicable_laws && (
-                  <p>
-                    적용 가능 법률:{" "}
-                    {expr.applicable_laws.length > 0
-                      ? expr.applicable_laws.join(", ")
-                      : "판단 근거 없음"}
-                  </p>
-                )}
-                {expr.related_cases && (
-                  <p>
-                    관련 판례:{" "}
-                    {expr.related_cases.length > 0
-                      ? expr.related_cases.join(" / ")
-                      : "판단 근거 없음"}
-                  </p>
-                )}
-              </div>
+              <article className="exhibit" key={i}>
+                <p className="exhibit-index">{i + 1}</p>
+                <div className="exhibit-body">
+                  <p className="exhibit-quote">「{expr.text}」</p>
+                  <div className="exhibit-meta">
+                    <span className="exhibit-type">{expr.type}</span>
+                    <span className="stamp" data-risk={expr.risk}>
+                      {expr.risk}
+                    </span>
+                  </div>
+                  <dl className="exhibit-detail">
+                    {expr.target && (
+                      <>
+                        <dt>대상</dt>
+                        <dd>{expr.target}</dd>
+                      </>
+                    )}
+                    {expr.context && (
+                      <>
+                        <dt>맥락</dt>
+                        <dd>{expr.context}</dd>
+                      </>
+                    )}
+                    {expr.applicable_laws && (
+                      <>
+                        <dt>적용 가능 법률</dt>
+                        <dd>
+                          {expr.applicable_laws.length > 0
+                            ? expr.applicable_laws.join(", ")
+                            : "판단 근거 없음"}
+                        </dd>
+                      </>
+                    )}
+                    {expr.related_cases && (
+                      <>
+                        <dt>관련 판례</dt>
+                        <dd>
+                          {expr.related_cases.length > 0
+                            ? expr.related_cases.join(" / ")
+                            : "판단 근거 없음"}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                </div>
+              </article>
             ))
           )}
-        </div>
+        </section>
       )}
 
-      <hr />
-      <p>{DISCLAIMER}</p>
+      <p className="disclaimer">{DISCLAIMER}</p>
     </div>
   );
 }
