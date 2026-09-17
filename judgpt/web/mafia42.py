@@ -1,5 +1,6 @@
 import re
 
+import httpx
 from bs4 import BeautifulSoup
 
 REPLAY_URL_PATTERN = re.compile(r"^https://mafia42\.com/history/([a-z]{2})/([0-9a-f]{32})/?$")
@@ -31,3 +32,30 @@ def _parse_chat_html(html: str) -> list[str]:
             if text:
                 lines.append(f"{nickname}: {text}")
     return lines
+
+
+def fetch_replay_chat_text(url: str) -> str:
+    match = REPLAY_URL_PATTERN.match(url)
+    if not match:
+        raise ReplayImportError("올바른 마피아42 리플레이 링크가 아닙니다", status_code=400)
+
+    lang, replay_id = match.groups()
+    try:
+        response = httpx.get(
+            CHAT_API_URL,
+            params={"id": replay_id, "lang": lang},
+            headers={"Referer": "https://mafia42.com/"},
+            timeout=10.0,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise ReplayImportError(
+            "리플레이를 가져오지 못했습니다. 링크를 확인해주세요", status_code=502
+        ) from exc
+
+    lines = _parse_chat_html(response.text)
+    if not lines:
+        raise ReplayImportError(
+            "리플레이를 가져오지 못했습니다. 링크를 확인해주세요", status_code=502
+        )
+    return "\n".join(lines)
