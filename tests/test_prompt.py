@@ -57,6 +57,31 @@ def test_system_prompt_includes_implicit_threat_criterion():
     assert "암시적" in system_content
 
 
+def test_system_prompt_clarifies_repeated_sexual_remark_is_harassment_not_remark():
+    """실측(TROUBLESHOOTING.md #14)에서 모델이 "B가 거부했는데도 반복했다"고 context에
+    올바르게 추론해놓고도 type은 성적 발언으로 잘못 고르는 패턴이 확인됐다 — 반복성
+    판단 기준은 있었지만 "그러면 type을 성희롱으로 바꿔야 한다"는 규칙이 명시돼
+    있지 않아서였다. 이를 명시하는 문장이 프롬프트에 있어야 한다."""
+    messages = build_messages("아무 텍스트")
+    system_content = messages[0]["content"]
+
+    assert "반복된" in system_content and "성적 발언이 아니라 성희롱" in system_content
+
+
+def test_system_prompt_sexual_remark_definition_does_not_contradict_harassment_rule():
+    """성적 발언 정의의 "반복 여부와 무관하게 판단한다"는 문장이, 성희롱 정의의
+    "거부 이후 반복이면 성희롱으로 분류한다"는 규칙과 정면으로 모순된다 — 실측에서
+    모델이 이 모순 때문에 앞쪽(성적 발언) 지시를 더 강하게 따르는 패턴이 나왔다.
+    성적 발언 정의 쪽에서도 성희롱으로 넘어가는 예외를 명시해 모순을 없애야 한다."""
+    messages = build_messages("아무 텍스트")
+    system_content = messages[0]["content"]
+
+    sexual_remark_line = [
+        line for line in system_content.split("\n") if line.strip().startswith("- 성적 발언:")
+    ][0]
+    assert "거부" in sexual_remark_line and "성희롱" in sexual_remark_line
+
+
 def test_system_prompt_requires_json_only_response():
     messages = build_messages("아무 텍스트")
     system_content = messages[0]["content"]
