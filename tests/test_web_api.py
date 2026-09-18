@@ -1,3 +1,5 @@
+import logging
+
 from judgpt.embedder import OllamaEmbedder
 from judgpt.llm import OllamaLLM
 from judgpt.web.dependencies import CachingEmbedder, get_embedder, get_llm
@@ -69,6 +71,18 @@ def test_analyze_endpoint_returns_expressions(client):
 
     assert response.status_code == 200
     assert response.json() == {"expressions": []}
+
+
+def test_analyze_endpoint_logs_request_and_result(client, caplog):
+    fake_llm = FakeLLM(['{"expressions": []}'])
+    app.dependency_overrides[get_llm] = lambda: fake_llm
+
+    with caplog.at_level(logging.INFO, logger="judgpt.web.app"):
+        client.post("/api/analyze", json={"chat_text": "A: 안녕"})
+
+    messages = [record.message for record in caplog.records]
+    assert any("analyze 요청" in m and "안녕" in m for m in messages)
+    assert any("analyze 응답" in m and "expressions" in m for m in messages)
 
 
 def test_analyze_endpoint_returns_400_on_empty_chat_text(client):

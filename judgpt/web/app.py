@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Callable
 
@@ -18,6 +19,9 @@ from judgpt.llm import LLM
 from judgpt.schema import AnalysisResult
 from judgpt.web.dependencies import get_embedder, get_llm, get_replay_importer
 from judgpt.web.mafia42 import ReplayImportError
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -54,17 +58,22 @@ def analyze_endpoint(
     llm: LLM = Depends(get_llm),
     embedder: Embedder = Depends(get_embedder),
 ) -> AnalysisResult | EnrichedResult:
+    ip = get_remote_address(request)
     if not body.chat_text.strip():
         raise HTTPException(status_code=400, detail="입력이 비어 있습니다")
 
+    logger.info("analyze 요청 ip=%s legal=%s chat_text=%r", ip, body.legal, body.chat_text)
     try:
-        result = analyze(body.chat_text, llm)
+        result: AnalysisResult | EnrichedResult = analyze(body.chat_text, llm)
         if body.legal:
-            return enrich(result, embedder)
+            result = enrich(result, embedder)
+        logger.info("analyze 응답 ip=%s result=%s", ip, result.model_dump_json())
         return result
-    except AnalysisError:
+    except AnalysisError as exc:
+        logger.warning("analyze 실패 ip=%s error=%s", ip, exc)
         raise HTTPException(status_code=502, detail="분석에 실패했습니다. 다시 시도해주세요")
-    except APIConnectionError:
+    except APIConnectionError as exc:
+        logger.warning("analyze 실패 ip=%s error=%s", ip, exc)
         raise HTTPException(status_code=503, detail="분석 엔진이 응답하지 않습니다")
 
 
