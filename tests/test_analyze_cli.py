@@ -4,6 +4,7 @@ import pytest
 
 from judgpt.analyze import main, run
 from judgpt.embedder import FakeEmbedder
+from judgpt.legal_data.cases import load_cases
 from judgpt.llm import FakeLLM
 from judgpt.report import DISCLAIMER
 
@@ -119,14 +120,10 @@ def test_main_reconfigures_stdin_encoding_when_supported(monkeypatch, capsys):
 
 def test_run_legal_flag_adds_applicable_laws():
     llm = FakeLLM(['{"expressions": [{"text": "예시", "type": "모욕", "risk": "높음"}]}'])
-    # Provide embeddings for case summaries that will be loaded
-    embedder_vectors = {
-        "사업소장인 피고인이 카카오톡 문자메시지로 다른 관리자를 '정말 야비한 사람인 것 같습니다'라고 표현한 사안에서, 대법원은 이 표현이 부정적·비판적 의견을 담은 경미한 수준의 추상적 표현에 불과해 외부적 명예를 침해할 만한 표현으로 단정하기 어렵다며 모욕죄 성립을 부정했다.": [0.1, 0.2, 0.3],
-        "촬영물 등을 이용해 유포 가능성 등 공포심을 일으킬 수 있는 정도의 해악을 고지한 경우, 성폭력범죄의 처벌 등에 관한 특례법 제14조의3 제1항의 촬영물등이용협박죄가 성립한다고 판단했다.": [0.1, 0.2, 0.3],
-        "고등학교 동창 10여 명이 참여한 단체 채팅방에서 특정 동창에 대해 '사기죄로 감방에서 몇 개월 살다가 나왔다'는 취지로 발언해 정보통신망법상 명예훼손으로 기소된 사안에서, 대법원은 같은 사회집단 구성원에게 피해를 막기 위해 경고하는 것도 그 집단의 공익에 관한 사항이 될 수 있다며 '비방할 목적'을 인정하기 어렵다고 보아 원심(유죄)을 파기환송했다.": [0.1, 0.2, 0.3],
-        "온라인 게임 채팅창에서 다툼 중 상대방에게 성적 표현이 담긴 메시지를 전송해 성폭력범죄의 처벌 등에 관한 특례법 제13조(통신매체를 이용한 음란행위) 위반으로 기소된 사안에서, 대법원은 주된 목적이 분노 표출이었다고 보아 '성적 욕망을 유발하거나 만족시킬 목적'을 인정하기 어렵다며 원심(유죄)을 파기환송했다.": [0.1, 0.2, 0.3],
-        "예시": [0.1, 0.2, 0.3],
-    }
+    # 실제 cases.json의 판례 전부에 대해 임베딩을 준비해둔다 — 코퍼스가 늘어나도
+    # 이 테스트가 깨지지 않도록 하드코딩된 문자열 대신 load_cases()로 채운다.
+    embedder_vectors = {case.summary: [0.1, 0.2, 0.3] for case in load_cases()}
+    embedder_vectors["예시"] = [0.1, 0.2, 0.3]
     embedder = FakeEmbedder(embedder_vectors)
 
     output = run("A: 예시", llm, as_json=True, legal=True, embedder=embedder)
@@ -146,13 +143,9 @@ def test_main_legal_flag_wires_embedder_and_prints_report(tmp_path, capsys):
     chat_file = tmp_path / "chat.txt"
     chat_file.write_text("A: 예시", encoding="utf-8")
     fake_llm = FakeLLM(['{"expressions": []}'])
-    # Provide embeddings for case summaries that will be loaded
-    embedder_vectors = {
-        "사업소장인 피고인이 카카오톡 문자메시지로 다른 관리자를 '정말 야비한 사람인 것 같습니다'라고 표현한 사안에서, 대법원은 이 표현이 부정적·비판적 의견을 담은 경미한 수준의 추상적 표현에 불과해 외부적 명예를 침해할 만한 표현으로 단정하기 어렵다며 모욕죄 성립을 부정했다.": [0.1, 0.2, 0.3],
-        "촬영물 등을 이용해 유포 가능성 등 공포심을 일으킬 수 있는 정도의 해악을 고지한 경우, 성폭력범죄의 처벌 등에 관한 특례법 제14조의3 제1항의 촬영물등이용협박죄가 성립한다고 판단했다.": [0.1, 0.2, 0.3],
-        "고등학교 동창 10여 명이 참여한 단체 채팅방에서 특정 동창에 대해 '사기죄로 감방에서 몇 개월 살다가 나왔다'는 취지로 발언해 정보통신망법상 명예훼손으로 기소된 사안에서, 대법원은 같은 사회집단 구성원에게 피해를 막기 위해 경고하는 것도 그 집단의 공익에 관한 사항이 될 수 있다며 '비방할 목적'을 인정하기 어렵다고 보아 원심(유죄)을 파기환송했다.": [0.1, 0.2, 0.3],
-        "온라인 게임 채팅창에서 다툼 중 상대방에게 성적 표현이 담긴 메시지를 전송해 성폭력범죄의 처벌 등에 관한 특례법 제13조(통신매체를 이용한 음란행위) 위반으로 기소된 사안에서, 대법원은 주된 목적이 분노 표출이었다고 보아 '성적 욕망을 유발하거나 만족시킬 목적'을 인정하기 어렵다며 원심(유죄)을 파기환송했다.": [0.1, 0.2, 0.3],
-    }
+    # 실제 cases.json의 판례 전부에 대해 임베딩을 준비해둔다 — 코퍼스가 늘어나도
+    # 이 테스트가 깨지지 않도록 하드코딩된 문자열 대신 load_cases()로 채운다.
+    embedder_vectors = {case.summary: [0.1, 0.2, 0.3] for case in load_cases()}
     fake_embedder = FakeEmbedder(embedder_vectors)
 
     main(["--file", str(chat_file), "--legal"], llm=fake_llm, embedder=fake_embedder)
