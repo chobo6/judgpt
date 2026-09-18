@@ -6,7 +6,7 @@ from judgpt.embedder import Embedder, OllamaEmbedder
 from judgpt.llm import LLM, OllamaLLM
 from judgpt.web.mafia42 import fetch_replay_chat_text
 
-_REQUEST_TIMEOUT_SECONDS = 30.0
+_REQUEST_TIMEOUT_SECONDS = 90.0  # Cloudflare Tunnel 무료 플랜의 100초 하드 타임아웃보다 짧게
 
 _llm: LLM | None = None
 _embedder: Embedder | None = None

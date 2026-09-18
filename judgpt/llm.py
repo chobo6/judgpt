@@ -33,7 +33,10 @@ class OllamaLLM:
     ) -> None:
         self.model = model
         self.temperature = temperature
-        kwargs: dict = {"base_url": base_url, "api_key": "ollama"}
+        # max_retries=0: 기본값(2회)대로 두면 타임아웃마다 처음부터 다시 생성을 시도해서
+        # 실패까지 걸리는 시간이 timeout의 3배가 된다(예: timeout=90 -> 최악 270초 대기).
+        # 재시도해도 매번 같은 이유로 다시 타임아웃 날 뿐이라 얻는 게 없다 — 한 번만 시도한다.
+        kwargs: dict = {"base_url": base_url, "api_key": "ollama", "max_retries": 0}
         if timeout is not None:
             kwargs["timeout"] = timeout
         self._client = OpenAI(**kwargs)

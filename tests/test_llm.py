@@ -52,6 +52,14 @@ def test_ollama_llm_client_uses_configured_timeout():
     assert llm._client.timeout == 30.0
 
 
+def test_ollama_llm_client_disables_retries():
+    # 재시도하면 실패까지 걸리는 시간이 timeout의 (1 + max_retries)배가 된다 — 타임아웃
+    # 날 만큼 느린 요청은 재시도해도 같은 이유로 또 타임아웃 나서 재시도가 무의미하다.
+    llm = OllamaLLM(model="exaone3.5:7.8b", base_url="http://localhost:11434/v1")
+
+    assert llm._client.max_retries == 0
+
+
 def test_ollama_llm_call_requests_json_object_format(monkeypatch):
     captured_kwargs = {}
 
